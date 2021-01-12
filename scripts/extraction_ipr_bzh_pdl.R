@@ -1,5 +1,6 @@
 rm(list=ls())
 
+detach("package:aspe", unload = TRUE)
 library(aspe)
 library(tidyverse)
 
@@ -53,7 +54,6 @@ id_stations_bzh_pdl <- station %>%
   pull(sta_id)
 
 # Sélection selon le réseau
-
 reseaux_select <- c('RCS – Réseau de Contrôle de Surveillance',
                     'RHP – Réseau Hydrobiologique Piscicole',
                     'RRP – Réseau de Référence Pérenne')
@@ -62,8 +62,7 @@ id_reseaux <- ref_objectif %>%
   filter(obj_libelle %in% reseaux_select) %>%
   pull(obj_id)
 
-# On peut ensuite filtrer le tableau passerelle sur ces vecteurs.
-
+# On peut ensuite filtrer le tableau passerelle sur ces vecteurs id_reseaux et id_stations_bzh_pdl.
 passerelle <- passerelle %>%
   filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
   filter(obj_id %in% id_reseaux) %>% # filtrage sur réseaux
@@ -71,8 +70,7 @@ passerelle <- passerelle %>%
   distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
 
 
-# Bilan des ipr par station depuis 2010
-
+# Bilan des IPR par station depuis 2010
 date_debut <- '01-01-2010'
 # date_fin <- '31-12-2020'
 
@@ -137,7 +135,7 @@ date_debut <- '01-01-2010'
 #     }
 
 ipr <- extraire_ipr(passerelle = passerelle,
-                     date_debut = '01/01/2020',
+                     date_debut = '01/01/2010',
                      date_fin = '31/07/2020')
 
 # Changement de format pour avoir une colonne par année (utilisable seulement si
@@ -189,6 +187,41 @@ library(lubridate)
 
 date_debut <- '01-01-2020'
 date_fin <- '31-12-2020'
+
+formatter_pour_macro <- function(passerelle, date_debut, date_fin = Sys.Date())
+
+   {
+
+  data <- passerelle %>%
+    select(sta_id, pop_id, ope_id, pre_id) %>%
+    filter(sta_id %in% id_stations_bzh_pdl) %>%
+    distinct() %>%
+    left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, opi_ipr, starts_with("opi_param"))) %>%
+    filter(!is.na(opi_ipr)) %>%
+    left_join(y = operation %>% select(ope_id, ope_date)) %>%
+    left_join(y = point_prelevement %>% select(pop_id, pop_enh_id, pop_libelle_wama)) %>%
+    left_join(y = station %>% select(sta_id, sta_libelle_sandre)) %>%
+    mutate(ope_date = ymd_hms(ope_date)) %>%
+    filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
+    left_join(y = lot_poissons %>% select(pre_id = lop_pre_id, esp_id = lop_esp_id, lop_effectif)) %>%
+    left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>%
+    left_join(ref_unite_hydrographique %>% select(unh_code_sandre, unh_libelle),
+              by = c("opi_param_bassin" = "unh_code_sandre")) %>%
+    mutate(coursdo = NA) %>%
+    select(ope_id, coursdo, sta_libelle_sandre, ope_date, opi_param_surf, opi_param_sbv, opi_param_ds,
+           opi_param_lar, opi_param_pent, opi_param_prof, opi_param_alt, opi_param_tjuillet, opi_param_tjanvier,
+           opi_param_bassin, esp_code_alternatif, lop_effectif)
+
+  data <- data %>%
+    group_by_at(setdiff(names(.), "lop_effectif")) %>%
+    summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
+    ungroup() %>%
+    pivot_wider(names_from = esp_code_alternatif, values_from = effectif)
+
+  }
+
+
+
 
 data <- passerelle %>%
   select(sta_id, pop_id, ope_id, pre_id) %>%

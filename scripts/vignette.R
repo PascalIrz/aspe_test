@@ -24,10 +24,10 @@ tictoc::toc()
 gdata::keep(operation, operation_description_peche, operation_donnees_environnementales, operation_ipr,
             station, point_prelevement, libelles, lot_poissons, parametres, parametres_globaux,
             ref_type_projection, prelevement_elementaire, ref_espece, ref_methode_estimation_poids, ref_protocole,
-            ref_type_lot, ref_unite_hydrographique, ref_objectif,
+            ref_type_lot, ref_unite_hydrographique, ref_objectif, operation_objectif,
             sure = TRUE)
 
-save.image(file  = "processed_data/tables_selectionnees.RData")
+save.image(file = "processed_data/tables_selectionnees.RData")
 
 
 
