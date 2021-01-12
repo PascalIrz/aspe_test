@@ -52,15 +52,29 @@ id_stations_bzh_pdl <- station %>%
   filter(sta_dept %in% depts_bzh_pdl) %>%
   pull(sta_id)
 
-# On peut ensuite filtrer les tables sur ce vecteur. Par exemple :
+# Sélection selon le réseau
+
+reseaux_select <- c('RCS – Réseau de Contrôle de Surveillance',
+                    'RHP – Réseau Hydrobiologique Piscicole',
+                    'RRP – Réseau de Référence Pérenne')
+
+id_reseaux <- ref_objectif %>%
+  filter(obj_libelle %in% reseaux_select) %>%
+  pull(obj_id)
+
+# On peut ensuite filtrer le tableau passerelle sur ces vecteurs.
 
 passerelle <- passerelle %>%
-  filter(sta_id %in% id_stations_bzh_pdl)
+  filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
+  filter(obj_id %in% id_reseaux) %>% # filtrage sur réseaux
+  select(-obj_id) %>%
+  distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
+
 
 # Bilan des ipr par station depuis 2010
 
-date_debut <- '01-01-2020'
-date_fin <- '31-12-2020'
+date_debut <- '01-01-2010'
+# date_fin <- '31-12-2020'
 
 # ipr <- passerelle %>%
 #   left_join(y = operation %>% select(ope_id, ope_date)) %>% # récupération de la date
@@ -89,38 +103,38 @@ date_fin <- '31-12-2020'
 #          classe_ipr) %>%
 #   distinct() # suppression des doublons
 
-extraire_ipr <- function(passerelle, date_debut, date_fin = Sys.Date())
-
-  {
-
-  passerelle %>%
-    left_join(y = operation %>% select(ope_id, ope_date)) %>% # récupération de la date
-    mutate(ope_date = as.character(ope_date), # mise au format de la date
-           annee = lubridate::ymd_hms(ope_date), # création variable année
-           annee = lubridate::year(annee),
-           ope_date = ymd_hms(ope_date)) %>%
-    filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
-    left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, ipr = opi_ipr)) %>% # récupération IPR
-    filter(!is.na(ipr)) %>% # filtrage des IPR non vides
-    left_join(y = point_prelevement %>% select(pop_id, pop_libelle_wama)) %>% # récupération libellé point
-    left_join(y = station %>% select(sta_id, sta_libelle_sandre, sta_com_code_insee)) %>%
-    mutate(dept = str_sub(sta_com_code_insee, start = 1, end = 2), # création variable dept
-           classe_ipr = cut(ipr, # discrétisation IPR
-                            breaks = c(-99, 7, 16, 25, 36, 1e6),
-                            labels = c("Très bon", "Bon", "Moyen", "Médiocre", "Mauvais"))) %>%
-    select(libelle_station = sta_libelle_sandre, # sélection et ordonancement des colonnes
-           dept,
-           sta_id,
-           libelle_point = pop_libelle_wama,
-           pop_id,
-           ope_id,
-           annee,
-           date_operation = ope_date,
-           ipr,
-           classe_ipr) %>%
-    distinct() # suppression des doublons
-
-    }
+# extraire_ipr <- function(passerelle, date_debut, date_fin = Sys.Date())
+#
+#   {
+#
+#   passerelle %>%
+#     left_join(y = operation %>% select(ope_id, ope_date)) %>% # récupération de la date
+#     mutate(ope_date = as.character(ope_date), # mise au format de la date
+#            annee = lubridate::ymd_hms(ope_date), # création variable année
+#            annee = lubridate::year(annee),
+#            ope_date = ymd_hms(ope_date)) %>%
+#     filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
+#     left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, ipr = opi_ipr)) %>% # récupération IPR
+#     filter(!is.na(ipr)) %>% # filtrage des IPR non vides
+#     left_join(y = point_prelevement %>% select(pop_id, pop_libelle_wama)) %>% # récupération libellé point
+#     left_join(y = station %>% select(sta_id, sta_libelle_sandre, sta_com_code_insee)) %>%
+#     mutate(dept = str_sub(sta_com_code_insee, start = 1, end = 2), # création variable dept
+#            classe_ipr = cut(ipr, # discrétisation IPR
+#                             breaks = c(-99, 7, 16, 25, 36, 1e6),
+#                             labels = c("Très bon", "Bon", "Moyen", "Médiocre", "Mauvais"))) %>%
+#     select(libelle_station = sta_libelle_sandre, # sélection et ordonancement des colonnes
+#            dept,
+#            sta_id,
+#            libelle_point = pop_libelle_wama,
+#            pop_id,
+#            ope_id,
+#            annee,
+#            date_operation = ope_date,
+#            ipr,
+#            classe_ipr) %>%
+#     distinct() # suppression des doublons
+#
+#     }
 
 ipr <- extraire_ipr(passerelle = passerelle,
                      date_debut = '01/01/2020',
@@ -129,20 +143,20 @@ ipr <- extraire_ipr(passerelle = passerelle,
 # Changement de format pour avoir une colonne par année (utilisable seulement si
 # plusieurs années de données).
 
-passer_ipr_large <- function(ipr_df)
-
-  {
-
-  ipr_df %>%
-    select(libelle_station, libelle_point, dept, annee, ipr, pop_id) %>%
-    filter(annee > 2009) %>%
-    distinct() %>%
-    pivot_wider(names_from = annee,
-                values_from = ipr,
-                names_sort = TRUE,
-                values_fn = mean)
-
-  }
+# passer_ipr_large <- function(ipr_df)
+#
+#   {
+#
+#   ipr_df %>%
+#     select(libelle_station, libelle_point, dept, annee, ipr, pop_id) %>%
+#     filter(annee > 2009) %>%
+#     distinct() %>%
+#     pivot_wider(names_from = annee,
+#                 values_from = ipr,
+#                 names_sort = TRUE,
+#                 values_fn = mean)
+#
+#   }
 
 
 
