@@ -5,7 +5,14 @@ detach("package:aspe", unload = TRUE)
 library(aspe)
 library(tidyverse)
 
-#C Chargement des tables transmises par Thierry
+mon_fichier_dump <- "raw_data/2020_01_12_aspe.sql.gz"
+scinder_dump(fichier_dump = mon_fichier_dump)
+lignes_autres_tables <- lire_lignes_dump_sql(fichier_dump = mon_fichier_dump)
+importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
+                                    tables_a_extraire = c("point_prelevement"))
+
+
+# Chargement des tables transmises par Thierry
 repo <- 'raw_data/verif_2021_01_12/'
 file_names <- list.files(repo) %>% str_subset(pattern = '.csv')
 files <- paste0(repo, file_names)
@@ -16,31 +23,58 @@ df_names <- file_names %>%
   paste0('_1')
 
 # marche mais lent (pas réussi avec fread)
-for(i in 1:14) {
-  assign(df_names[i], read.table(files[i], encoding = "UTF-8", fill = TRUE,
-                                 header = TRUE))
+# for(i in 1:14) {
+#   assign(df_names[i], read.table(files[i], encoding = "UTF-8", fill = TRUE,
+#                                  header = TRUE))
+# }
+
+# Suite au retour de Thierry, vérifications sur point_prelevement.
+point_prelevement_strquote_1 <- data.table::fread("raw_data/verif_2021_01_12/aspe.point_prelevement_strquote.csv",
+                                                  encoding  ="UTF-8")
+
+
+identical(point_prelevement_strquote_1, point_prelevement)
+class(point_prelevement_strquote_1)
+class(point_prelevement)
+
+pp <- point_prelevement %>% arrange(pop_id)
+pp1 <- point_prelevement_strquote_1 %>% arrange(pop_id) %>%
+  as.data.frame()
+
+compare_id <- function(df1, df2, i) {
+  identical(df1[,i], df2[,1])
 }
+compare_id(df1 = pp, df2 = pp1, i = 2)
 
-i <- 13
-assign(x = df_names[i],
-       value = read.table(files[i], encoding = "UTF-8", fill = TRUE, header = TRUE))
-
-# Ok jusqu'à 12 mais bloque à i = 13'
-rm(point_prelevement_1)
-point_prelevement_2 <- read.table(files[i], fileEncoding  = "UTF-8", fill = TRUE, header = TRUE, row.names = NULL)
-point_prelevement_2 <- data.table::fread(files[i], encoding  = "UTF-8")
-mon_fichier_dump <- "raw_data/2020_01_12_aspe.sql.gz"
+i <- 3
+comp <- cbind(pp = pp[,i], pp1 = pp1[,i]) %>%
+  as.data.frame() %>%
+  mutate(egal = (pp == pp1)) %>%
+  # filter(egal == TRUE) %>%
+  # nrow()
 
 
+identical(pp[,1], pp1[,1])
+
+
+identical(names(point_prelevement_strquote_1), names(point_prelevement))
+
+identical(point_prelevement_strquote_1$pop_id, point_prelevement$pop_id)
+setdiff(point_prelevement$pop_id, point_prelevement_strquote_1$pop_id)
+
+i <- 1
+pp = pp[,i]
+pp_strquote = pp1[,i]
+
+comp <- cbind(pp = pp[,!!as.name(i)], ) %>%
+  mutate(egal = (pp == pp_strquote))
 
 
 
 
 
-scinder_dump(fichier_dump = mon_fichier_dump)
 
-# Ensuite, on peut charger la partie du dump correspondant à toutes les tables sauf la plus volumineuse.
-load(file = "raw_data/lignes_autres_tables.RData")
+
 
 # Si l'on connaît les noms des tables dont on aura besoin, on les charge directement.
 importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
@@ -63,3 +97,32 @@ operation_objectif_verif %>%
   View
 
 devtools::install_github("pascalirz/aspe")
+
+
+
+# ----------------------------------------------------------------------------------
+# envoi des tables à Thierry.
+# commencer pas tout effacer
+# rm(list = ls())
+mon_fichier_dump <- "raw_data/2020_01_12_aspe.sql.gz"
+importer_dump_sql(fichier_dump = mon_fichier_dump)
+rm(mon_fichier_dump)
+
+# dfs <- Filter(function(x) is.data.frame(get(x)) , ls()) # noms des dataframes
+dfs <- ls()
+file_names <- paste0('processed_data/exports_pour_thierry/', dfs, '.csv')
+
+my_write <- function(df_name, csv_name) {
+  df_name %>% get() %>% write_csv(path = csv_name, na = "")
+}
+
+my_write(df_name = dfs[3],
+         csv_name = file_names[3])
+
+map2(.x = dfs,
+     .y = file_names,
+     .f = my_write)
+
+files2zip <- dir('processed_data/exports_pour_thierry/', full.names = TRUE)
+zip(zipfile = 'processed_data/exports_pour_thierry/export_r',
+    files = files2zip)
