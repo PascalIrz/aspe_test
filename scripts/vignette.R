@@ -1,26 +1,42 @@
 detach("package:aspe", unload = TRUE)
 
+# Chargement des packages
 library(aspe)
 library(tidyverse)
 
-rm(list=ls())
+# rm(list=ls())
 
-mon_fichier_dump <- "raw_data/aspe.sql.gz"
-
+# Importer en une seule fois l'intégralité des tables de la base Aspe.
+# Attention, nécessite minimul 16Go de RAM
+mon_fichier_dump <- "raw_data/verif_2021_01_12/aspe.sql"
 importer_dump_sql(fichier_dump = mon_fichier_dump)
 
+# Si l'on n'a pas la RAM suffisante il faut scinder la base en deux parties qui vont correspondre
+# à d'une part la table mesure_individuelle (à elle seule elle représente plus de la moitié du volume)
+# et d'autre part à toutes les autres tables. Chacun de ces éléments est stocké dans un fichier
+# au format .RData, par défaut dans le répertoire où se trouve le dump. Ce découpage prend 5-10'.
+# NB la décompression peut être bloquée sur le chemin d'accès est trop long, ce qui retourne un
+# message d'erreur :
+# Error in gzfile(file, "wb") : argument 'description' incorrect
+# De plus : Warning message:
+#   In if (!nzchar(file)) stop("'file' must be non-empty string") :
+#   la condition a une longueur > 1 et seul le premier élément est utilisé
+# Dans ce cas, déplacez le dump pour accourcir le chemin d'accès (insérer image)
 scinder_dump(fichier_dump = mon_fichier_dump)
 
+# Ensuite, on peut charger la partie du dump correspondant à toutes les tables sauf la plus volumineuse.
 load(file = "raw_data/lignes_autres_tables.RData")
 
-# importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
-#                                     tables_a_extraire = c("ambiance", "facies"))
-# environ 5'
-tictoc::tic()
-importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
-tictoc::toc()
+# Si l'on connaît les noms des tables dont on aura besoin, on les charge directement.
+importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
+                                    tables_a_extraire = c("station", "facies"))
 
-# On ne garde que les tables dont on a besoin
+# Sinon, on importe tout (environ 5') puis on fera le tri.
+importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
+rm(lignes_autres_tables)
+save.image(file = "processed_data/tables_dump_2021_02_11.RData")
+
+# On ne garde que les tables dont on a besoin (si besoin installer le package {gdata}).
 gdata::keep(operation, operation_description_peche, operation_donnees_environnementales, operation_ipr,
             station, point_prelevement, libelles, lot_poissons, parametres, parametres_globaux,
             ref_type_projection, prelevement_elementaire, ref_espece, ref_methode_estimation_poids, ref_protocole,
@@ -35,8 +51,6 @@ save.image(file = "processed_data/tables_selectionnees.RData")
 
 # A ce stade on a chargé toutes les tables nécessaires à la suite. C'est un peu lourd donc si l'on ne travaille
 # pas France entière il est préférable de restreindre au périmètre de l'étude
-
-# load(file  = "processed_data/tables_selectionnees.RData")
 
 # Sélection des stations sur la base administrative - exemple sur les départements
 depts_bzh_pdl <- c(22, 29, 35, 56, 44, 53, 72, 49, 85)

@@ -161,8 +161,8 @@ ipr <- extraire_ipr(passerelle = passerelle,
 ipr_large <- passer_ipr_large(ipr_df = ipr)
 
 # Exporration au format csv lisible par Excel
-write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv", row.names = FALSE,
-           na = "")
+write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv",
+           row.names = FALSE, na = "")
 
 n_mini_annees <- 7
 
@@ -185,69 +185,71 @@ ggplot(data = data, aes(x = annee, y = ipr)) +
 
 library(lubridate)
 
-date_debut <- '01-01-2020'
-date_fin <- '31-12-2020'
+# date_debut <- '01-01-2020'
+# date_fin <- '31-12-2020'
 
-formatter_pour_macro <- function(passerelle, date_debut, date_fin = Sys.Date())
+# formater_pour_macro <- function(passerelle, date_debut, date_fin = format(Sys.Date(), "%d/%m/%Y"))
+#
+#    {
+#
+#   data <- passerelle %>%
+#     select(sta_id, pop_id, ope_id, pre_id) %>%
+#     distinct() %>%
+#     left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, opi_ipr, starts_with("opi_param"))) %>%
+#     filter(!is.na(opi_ipr)) %>%
+#     left_join(y = operation %>% select(ope_id, ope_date)) %>%
+#     left_join(y = point_prelevement %>% select(pop_id, pop_enh_id, pop_libelle_wama)) %>%
+#     left_join(y = station %>% select(sta_id, sta_libelle_sandre)) %>%
+#     mutate(ope_date = ymd_hms(ope_date)) %>%
+#     filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
+#     left_join(y = lot_poissons %>% select(pre_id = lop_pre_id, esp_id = lop_esp_id, lop_effectif)) %>%
+#     left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>%
+#     left_join(ref_unite_hydrographique %>% select(unh_code_sandre, unh_libelle_sandre),
+#               by = c("opi_param_bassin" = "unh_code_sandre")) %>%
+#     mutate(coursdo = NA,
+#            unh_libelle_sandre = str_extract(unh_libelle_sandre, pattern = '\\b\\w+$'),
+#            unh_libelle_sandre = str_sub(unh_libelle_sandre, 1, 4)) %>%
+#     select(ope_id, coursdo, sta_libelle_sandre, ope_date, opi_param_surf, opi_param_sbv, opi_param_ds,
+#            opi_param_lar, opi_param_pent, opi_param_prof, opi_param_alt, opi_param_tjuillet, opi_param_tjanvier,
+#            unh_libelle_sandre, esp_code_alternatif, lop_effectif)
+#
+#   data %>%
+#     group_by_at(setdiff(names(.), "lop_effectif")) %>%
+#         summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
+#     ungroup() %>%
+#     pivot_wider(names_from = esp_code_alternatif, values_from = effectif)
+#
+#   }
 
-   {
-
-  data <- passerelle %>%
-    select(sta_id, pop_id, ope_id, pre_id) %>%
-    filter(sta_id %in% id_stations_bzh_pdl) %>%
-    distinct() %>%
-    left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, opi_ipr, starts_with("opi_param"))) %>%
-    filter(!is.na(opi_ipr)) %>%
-    left_join(y = operation %>% select(ope_id, ope_date)) %>%
-    left_join(y = point_prelevement %>% select(pop_id, pop_enh_id, pop_libelle_wama)) %>%
-    left_join(y = station %>% select(sta_id, sta_libelle_sandre)) %>%
-    mutate(ope_date = ymd_hms(ope_date)) %>%
-    filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
-    left_join(y = lot_poissons %>% select(pre_id = lop_pre_id, esp_id = lop_esp_id, lop_effectif)) %>%
-    left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>%
-    left_join(ref_unite_hydrographique %>% select(unh_code_sandre, unh_libelle),
-              by = c("opi_param_bassin" = "unh_code_sandre")) %>%
-    mutate(coursdo = NA) %>%
-    select(ope_id, coursdo, sta_libelle_sandre, ope_date, opi_param_surf, opi_param_sbv, opi_param_ds,
-           opi_param_lar, opi_param_pent, opi_param_prof, opi_param_alt, opi_param_tjuillet, opi_param_tjanvier,
-           opi_param_bassin, esp_code_alternatif, lop_effectif)
-
-  data <- data %>%
-    group_by_at(setdiff(names(.), "lop_effectif")) %>%
-    summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
-    ungroup() %>%
-    pivot_wider(names_from = esp_code_alternatif, values_from = effectif)
-
-  }
+data <- formater_pour_macro(passerelle = passerelle,
+                            date_debut = '01/01/2020')
 
 
-
-
-data <- passerelle %>%
-  select(sta_id, pop_id, ope_id, pre_id) %>%
-  filter(sta_id %in% id_stations_bzh_pdl) %>%
-  distinct() %>%
-  left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, opi_ipr, starts_with("opi_param"))) %>%
-  filter(!is.na(opi_ipr)) %>%
-  left_join(y = operation %>% select(ope_id, ope_date)) %>%
-  left_join(y = point_prelevement %>% select(pop_id, pop_enh_id, pop_libelle_wama)) %>%
-  left_join(y = station %>% select(sta_id, sta_libelle_sandre)) %>%
-  mutate(ope_date = ymd_hms(ope_date)) %>%
-  filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
-  left_join(y = lot_poissons %>% select(pre_id = lop_pre_id, esp_id = lop_esp_id, lop_effectif)) %>%
-  left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>%
-  left_join(ref_unite_hydrographique %>% select(unh_code_sandre, unh_libelle),
-            by = c("opi_param_bassin" = "unh_code_sandre")) %>%
-  mutate(coursdo = NA) %>%
-  select(ope_id, coursdo, sta_libelle_sandre, ope_date, opi_param_surf, opi_param_sbv, opi_param_ds,
-         opi_param_lar, opi_param_pent, opi_param_prof, opi_param_alt, opi_param_tjuillet, opi_param_tjanvier,
-         opi_param_bassin, esp_code_alternatif, lop_effectif)
-
-data <- data %>%
-  group_by_at(setdiff(names(.), "lop_effectif")) %>%
-        summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
-  ungroup() %>%
-  pivot_wider(names_from = esp_code_alternatif, values_from = effectif)
+# data <- passerelle %>%
+#   select(sta_id, pop_id, ope_id, pre_id) %>%
+#   filter(sta_id %in% id_stations_bzh_pdl) %>%
+#   distinct() %>%
+#   left_join(y = operation_ipr %>% select(ope_id = opi_ope_id, opi_ipr, starts_with("opi_param"))) %>%
+#   filter(!is.na(opi_ipr)) %>%
+#   left_join(y = operation %>% select(ope_id, ope_date)) %>%
+#   left_join(y = point_prelevement %>% select(pop_id, pop_enh_id, pop_libelle_wama)) %>%
+#   left_join(y = station %>% select(sta_id, sta_libelle_sandre)) %>%
+#   mutate(ope_date = ymd_hms(ope_date)) %>%
+#   filter(ope_date <= dmy(date_fin) & ope_date >= dmy(date_debut)) %>%
+#   left_join(y = lot_poissons %>% select(pre_id = lop_pre_id, esp_id = lop_esp_id, lop_effectif)) %>%
+#   left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>%
+#   left_join(ref_unite_hydrographique %>% select(unh_code_sandre, unh_libelle),
+#             by = c("opi_param_bassin" = "unh_code_sandre")) %>%
+#   mutate(coursdo = NA) %>%
+#   select(ope_id, coursdo, sta_libelle_sandre, ope_date, opi_param_surf, opi_param_sbv, opi_param_ds,
+#          opi_param_lar, opi_param_pent, opi_param_prof, opi_param_alt, opi_param_tjuillet, opi_param_tjanvier,
+#          opi_param_bassin, esp_code_alternatif, lop_effectif)
+#
+# data <- data %>%
+#   group_by_at(setdiff(names(.), "lop_effectif")) %>%
+#         summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   pivot_wider(names_from = esp_code_alternatif, values_from = effectif)
 
 
 # remarque pas trouvé comment rajouter le nom du cours d'eau - ne fonctionne pas avec jointure sur enh_id
@@ -287,7 +289,7 @@ names(var_env) <- noms_colonnes %>%
 captures <- data %>%
   select(noms_especes)
 
-final <- bind_cols(ref_operation, var_env, captures)
+final <- bind_cols(ref_operation, v1 = NA, var_env, v2 = NA, captures)
 
 write.csv2(final, "processed_data/aspe_format_macro.csv",
            row.names = FALSE,
