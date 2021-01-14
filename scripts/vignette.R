@@ -7,8 +7,8 @@ library(tidyverse)
 # rm(list=ls())
 
 # Importer en une seule fois l'intégralité des tables de la base Aspe.
-# Attention, nécessite minimul 16Go de RAM
-mon_fichier_dump <- "raw_data/verif_2021_01_12/aspe.sql"
+# Attention, nécessite minimum 16Go de RAM
+mon_fichier_dump <- "raw_data/2020_01_12_aspe.sql.gz"
 importer_dump_sql(fichier_dump = mon_fichier_dump)
 
 # Si l'on n'a pas la RAM suffisante il faut scinder la base en deux parties qui vont correspondre
