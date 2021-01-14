@@ -87,7 +87,15 @@ Si ça a bien fonctionné on trouve dans le répertoire de destination (par déf
 
 ![](../assets/fichiers_rdata.png)
 
-Ensuite, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur .
+Ensuite, on charge le fichier `.RData` souhaité.
+
+```{r, eval = FALSE}
+load(file = 'raw_data/lignes_autres_tables.RData')
+```
+
+Ce qui fait apparaître dans l'environnement un objet `lignes_autres_tables`.
+
+Puis, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur .
 
 ```{r, eval = FALSE}
 importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
@@ -95,15 +103,29 @@ importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
 ```
 
 
-Ensuite,on peut charger la partie du `dump` correspondant à toutes les tables sauf la plus volumineuse.
+Sinon, on importe tout (environ 5') puis on fera le tri.
+
 
 ```{r, eval = FALSE}
-importer_tables_a_partir_des_lignes(lignes_dump = "raw_data/lignes_autres_tables.RData")
+importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
 ```
 
+Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat. Pour sauver tous les `dataframe` mais pas les lignes du `dump` qui ne sont plus utiles, dans le répertoire `processed_data` :
 
-
-# Sinon, on importe tout (environ 5') puis on fera le tri.
-importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
+```{r, eval = FALSE}
 rm(lignes_autres_tables)
-save.image(file = "processed_data/tables_dump_2021_02_11.RData")
+save.image(file = "processed_data/tables_dump.RData")
+```
+
+Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package {gdata}, à installer si besoin.
+
+```{r, eval = FALSE}
+gdata::keep(operation, operation_description_peche, operation_donnees_environnementales, operation_ipr,
+            station, point_prelevement, libelles, lot_poissons, parametres, parametres_globaux,
+            ref_type_projection, prelevement_elementaire, ref_espece, ref_methode_estimation_poids,
+            ref_protocole, ref_type_lot, ref_unite_hydrographique, ref_objectif, operation_objectif,
+            sure = TRUE)
+
+save.image(file = "processed_data/tables_selectionnees.RData")
+```
+

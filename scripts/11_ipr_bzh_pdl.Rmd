@@ -6,25 +6,134 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-## R Markdown
+# Objectif
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Ce document donne un exemple de chaîne de traitement des données Aspe pour présenter des IPR sur une région et effectuer des vérifications au moyen de l'ancienne macro Excel de calcul de cet indice.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`.
 
-```{r cars}
-summary(cars)
+# Chargement des packages et des données
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "processed_data/tables_selectionnees.RData")
 ```
 
-## Including Plots
+```{r, eval = TRUE, echo = FALSE}
+library(aspe)
+library(tidyverse)
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+load(file = "../processed_data/tables_selectionnees.RData")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Grandes lignes de l'analyse
+
+## Structure de la base
+
+La base Aspe comprend plus d'une centaine de tables dont la plupart contiennent des référentiels associant des codes à des modalités. Par exemple la table `ref_protocole` associe le code `pro_id` à la modalité *"Pêche partielle par points (grand milieu)"*. Ces tables sont dites "périphériques".
+
+Chaque table comprend une clé primaire (suffixe "_id"), identifiant unique de chacune de ses lignes.
+
+Les tables qui constituent la colonne vertébrale de la base sont au nombre de six :
+
+- station
+- point_prelevement
+- operation
+- prelevement_elementaire
+- lot_poissons
+- mesure_individuelle
+
+Ces tables sont liées de manières hiérarchique. Ainsi, chaque mesure individuelle se rapporte à un lot, qui se rapporte à un prélèvement élémentaire, qui se rapporte à une opération ... jusqu'à la station.
+
+Pour savoir sur quelle station a été capturé ce goujon de 87mm, il faut donc remonter toute la chaîne.
+
+## Principe
+
+Pour simplifier les différents traitements et éviter d'avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n'incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé "passerelle" en ce qu'il fait la jonction entre les diféfrentes composantes de la base.
+
+
+```{r}
+passerelle <- creer_passerelle()
+```
+
+Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune). La sélection 
+
+
+```{r}
+depts_bzh_pdl <- c(22, 29, 35, 56, 44, 53, 72, 49, 85)
+
+id_stations_bzh_pdl <- station %>%
+  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>%
+  filter(sta_dept %in% depts_bzh_pdl) %>%
+  pull(sta_id)
+```
+
+>Le package {aspe} permet aussi effectuer une sélection géographique, par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur). Cette fonctionnalité n'est pas abordée ici car elle est plus complexe.
+
+On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP.
+
+```{r}
+reseaux_select <- c('RCS – Réseau de Contrôle de Surveillance',
+                    'RHP – Réseau Hydrobiologique Piscicole',
+                    'RRP – Réseau de Référence Pérenne')
+
+id_reseaux <- ref_objectif %>%
+  filter(obj_libelle %in% reseaux_select) %>%
+  pull(obj_id)
+```
+
+
+Maintenant qu'on a les identifiants des réseaux et des stations qui nous intéressent, filtrons la passerelle à partir des vecteurs `id_reseaux` et `id_stations_bzh_pdl`.
+
+```{r}
+passerelle <- passerelle %>%
+  filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
+  filter(obj_id %in% id_reseaux) %>% # filtrage sur réseaux
+  select(-obj_id) %>%
+  distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
+```
+
+# Bilan des IPR par station depuis 2010
+
+On va utiliser la passerelle pour assurer le lien entre des informations contenues dans différentes tables.
+
+```{r}
+date_debut <- '01-01-2010'
+
+ipr <- extraire_ipr(passerelle = passerelle,
+                     date_debut = '01/01/2010',
+                     date_fin = '31/07/2020')
+```
+
+Les premières lignes de ce tableau sont les suivantes :
+
+```{r}
+ipr %>% head() %>% DT::datatable()
+```
+
+Si l'on veut les mêmes données mais avec une colonne par année :
+
+```{r}
+ipr_large <- passer_ipr_large(ipr_df = ipr) %>% 
+  select(-libelle_point)
+```
+
+Les noms des colonnes sont alors :
+
+```{r}
+names(ipr_large)
+```
+
+
+Pour exporter le tableau en format utilisable simplement avec Excel :
+
+```{r, eval = FALSE}
+write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv",
+           row.names = FALSE, na = "")
+```
+
