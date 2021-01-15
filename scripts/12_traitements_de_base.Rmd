@@ -44,12 +44,33 @@ Les données dont il y a besoin sont dispersées dans diverses tables. C'est la 
 passerelle <- creer_passerelle()
 ```
 
-Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) : st_id; st_nom; st_long; ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof; numero_passage; code_esp; effectif; biomasse
+- Données de captures $\Rightarrow$ table `lot_poissons`
+- Données de superficie échantillonnée, méthode de pêche, etc. $\Rightarrow$ table `operation`
+- Numéro de passage (pour éventuellement n'en conserver qu'un) $\Rightarrow$ table `prelevement_elementaire`
+- Caractéristiques de la station $\Rightarrow$ table `station`
 
-Données de captures $\Rightarrow$ table `lot_poissons`
-Données de superficie échantillonnée $\Rightarrow$ table `operation`
-Caractéristiques de la station $\Rightarrow$ table `station`
+Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) :
 
+st_id; st_nom; st_long;
+ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof;
+numero_passage;
+code_esp; effectif; biomasse
+
+On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données.
+
+```{r}
+operation_syntheses <- operation %>% 
+  select(ope_id, ope_date, ope_surface_calculee, ope_pro_id, ) %>% 
+  left_join(y = operation_donnees_environnementales %>% select(ope_id = ode_ope_id, ode_profondeur_moyenne_station))
+
+data <- passerelle %>% 
+  left_join(y = lot_poissons %>% select(lop_id, lop_tyl_id, lop_poids, lop_esp_id, lop_effectif)) %>% 
+  left_join(y = operation_syntheses)
+  left_join(y = station %>% select(sta_id, sta_libelle_sandre))
+  
+
+names(data)
+```
 
 
 

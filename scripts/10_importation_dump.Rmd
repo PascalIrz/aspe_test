@@ -43,7 +43,7 @@ Pour installer le package {aspe} à partir de [Github](https://fr.wikipedia.org/
 3.	Les packages {devtools} et {roxygen2} (installables depuis Rstudio)
 4.	Rtools 40 64 bits $\Rightarrow$ [télécharger](https://cran.r-project.org/bin/windows/Rtools/)
 
-Une fois la machine configurer, le package est téléchargeable depuis Github :
+Une fois la machine configurée, le package est téléchargeable depuis Github :
 
 ```{r, eval = FALSE}
 devtools::install_github("pascalirz/aspe")
@@ -62,19 +62,6 @@ library(tidyverse)
 ```
 
 # Importation de la base
-
-Si l'on n'a pas la RAM suffisante il faut scinder la base en deux parties qui vont correspondre à 
-
-- la table mesure_individuelle (à elle seule elle représente plus de la moitié du volume)
-- toutes les autres tables.
-
-Chacun de ces éléments est stocké dans un fichier au format `.RData`, par défaut dans le répertoire où se trouve le `dump`. Ce découpage prend 5-10'.
-
->NB : Cette opération peut être bloquée si le chemin d'accès est trop long, ce qui retourne un message d'erreur :
-
-![](../assets/message_erreur_scinder_dump.png)
-
-Dans ce cas, déplacez le `dump` pour accourcir le chemin d'accès.
 
 ## Cas 1 : votre machine a 16Go de RAM ou plus
 
@@ -97,9 +84,17 @@ La première étape est de scinder le `dump` en deux parties qui seront stockée
 - Le premier fichier contient les lignes du *dump* correspondant à la table `mesure_individuelle`.
 - Le second contient le reste des lignes.
 
+Ce découpage prend 5-10'.
+
 ```{r, eval = FALSE}
 scinder_dump(fichier_dump = "raw_data/aspe.sql")
 ```
+
+>NB : Cette opération peut être bloquée si le chemin d'accès est trop long, ce qui retourne un message d'erreur :
+
+![](../assets/message_erreur_scinder_dump.png)
+
+Dans ce cas, déplacez le `dump` pour accourcir le chemin d'accès.
 
 Si ça a bien fonctionné on trouve dans le répertoire de destination (par défaut celui où se trouve le fichier du `dump`) les deux fichiers `.RData`.
 
@@ -113,22 +108,20 @@ load(file = 'raw_data/lignes_autres_tables.RData')
 
 Ce qui fait apparaître dans l'environnement un objet `lignes_autres_tables`.
 
-Puis, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur .
+Puis, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur.
 
 ```{r, eval = FALSE}
 importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
                                     tables_a_extraire = c("station", "facies"))
 ```
 
-
 Sinon, on importe tout (environ 5') puis on fera le tri.
-
 
 ```{r, eval = FALSE}
 importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
 ```
 
-Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat. Pour sauver tous les `dataframe` mais pas les lignes du `dump` qui ne sont plus utiles, dans le répertoire `processed_data` :
+Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`.
 
 ```{r, eval = FALSE}
 rm(lignes_autres_tables)

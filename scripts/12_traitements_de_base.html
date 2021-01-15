@@ -413,8 +413,20 @@ load(file = &quot;processed_data/tables_selectionnees.RData&quot;)</code></pre>
 <h1>Assemblage des données</h1>
 <p>Les données dont il y a besoin sont dispersées dans diverses tables. C’est la tableau “passerelle” qui sert à les relier.</p>
 <pre class="r"><code>passerelle &lt;- creer_passerelle()</code></pre>
+<ul>
+<li>Données de captures <span class="math inline">\(\Rightarrow\)</span> table <code>lot_poissons</code></li>
+<li>Données de superficie échantillonnée, méthode de pêche, etc. <span class="math inline">\(\Rightarrow\)</span> table <code>operation</code></li>
+<li>Numéro de passage (pour éventuellement n’en conserver qu’un) <span class="math inline">\(\Rightarrow\)</span> table <code>prelevement_elementaire</code></li>
+<li>Caractéristiques de la station <span class="math inline">\(\Rightarrow\)</span> table <code>station</code></li>
+</ul>
 <p>Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) : st_id; st_nom; st_long; ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof; numero_passage; code_esp; effectif; biomasse</p>
-<p>Données de captures <span class="math inline">\(\Rightarrow\)</span> table <code>lot_poissons</code> Données de superficie échantillonnée <span class="math inline">\(\Rightarrow\)</span> table <code>operation</code> Caractéristiques de la station <span class="math inline">\(\Rightarrow\)</span> table <code>station</code></p>
+<pre class="r"><code>data &lt;- passerelle %&gt;% 
+  left_join(y = station %&gt;% select(sta_id, sta_libelle_sandre))
+
+names(data)</code></pre>
+<pre><code>## [1] &quot;sta_id&quot;             &quot;pop_id&quot;             &quot;ope_id&quot;            
+## [4] &quot;obj_id&quot;             &quot;pre_id&quot;             &quot;lop_id&quot;            
+## [7] &quot;sta_libelle_sandre&quot;</code></pre>
 </div>
 
 

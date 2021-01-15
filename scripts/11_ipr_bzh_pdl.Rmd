@@ -61,7 +61,7 @@ Pour simplifier les différents traitements et éviter d'avoir à reproduire à 
 passerelle <- creer_passerelle()
 ```
 
-Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune). La sélection 
+Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).
 
 
 ```{r}
