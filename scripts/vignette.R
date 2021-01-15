@@ -1,3 +1,20 @@
+# Tuto package {aspe}
+
+# Préparation du projet
+
+# De manière générale il est recommandé de travailer sous la forme de "projets". L'intérêt et la
+# méthode sont développés dans les [supports de formation à R produits par le MTES](https://mtes-mct.github.io/parcours_r_socle_preparation_des_donnees/bien-commencer.html#cr%C3%A9er-un-projet-sous-rstudio-pour-vous-permettre-de-recencer-vos-travaux.).
+# insérer arborescence ![](assets/arborescence_repertoire_projet.png)
+Les données brutes sont stockées dans raw_data.
+Les sorties des traitements, y compris intermédiaires, sont dans processed_data.
+Les éléments d'illustration (logo, images, etc.) sont dans assets.
+Les scripts sont dans scripts.
+
+... et à a racine on trouve le fichier projet .Rproj, sur lequel il convient de cliquer à chaque fois qu'on veut
+ouvrir une session de ce projet.
+
+
+
 detach("package:aspe", unload = TRUE)
 
 # Chargement des packages
@@ -66,12 +83,6 @@ station_bzh_pdl <- station %>%
   filter(sta_id %in% id_stations_bzh_pdl)
 
 
-# Sélection sur la base géographique
-# On ne peut pas toujours filtrer sur base administrative. Par ex les contours des bassins versants ...
-# On utilise donc un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
-# Petit problème, plusieurs systèmes de coordonnées coexistent dans la base
-# => besoin d'homogénéiser pour que tous les objets soient dans le même système de coordonnées (CRS).
-# Dans cet exemple on bascule tout en WGS84, le système utilisé par le GPS.
 
 # Récupération des systèmes de coordonnées
 # Il manque le code epsg pour le lambert II étendu donc on le complète.

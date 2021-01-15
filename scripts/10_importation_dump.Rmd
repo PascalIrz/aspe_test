@@ -1,5 +1,6 @@
 ---
-title: "Importation du dump"
+title: "Base Aspe : importation du dump"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: rmarkdown::html_vignette
 vignette: html_document
 ---
@@ -33,6 +34,23 @@ Pour cet exemple on utilisera une des arborescences classiques :
 ... et à a racine on trouve le fichier projet `.Rproj`, sur lequel il convient de cliquer à chaque fois qu'on veut
 ouvrir une session de ce projet.
 
+# Chargement du package `{aspe}`
+
+Pour installer le package {aspe} à partir de [Github](https://fr.wikipedia.org/wiki/GitHub) il faut une machine disposant des éléments suivants - préférentiellement à installer dans cet ordre :
+
+1.	Le logiciel R dans une version récente (>4.0) $\Rightarrow$ [télécharger](https://cran.r-project.org/bin/windows/base/R-4.0.3-win.exe)
+2.	L'IDE RStudio à peu près à jour $\Rightarrow$ [télécharger](https://download1.rstudio.org/desktop/windows/RStudio-1.3.1093.exe)
+3.	Les packages {devtools} et {roxygen2} (installables depuis Rstudio)
+4.	Rtools 40 64 bits $\Rightarrow$ [télécharger](https://cran.r-project.org/bin/windows/Rtools/)
+
+Une fois la machine configurer, le package est téléchargeable depuis Github :
+
+```{r, eval = FALSE}
+devtools::install_github("pascalirz/aspe")
+```
+
+Eventuellement cette commande vous retournera un message demandant de mettre à jour des packages. Acceptez au moins les mises à jour depuis le [CRAN](https://cran.r-project.org/).
+
 
 # Activation du package `{aspe}`
 
@@ -43,7 +61,7 @@ library(aspe)
 library(tidyverse)
 ```
 
-# Comment importer la base ?
+# Importation de la base
 
 Si l'on n'a pas la RAM suffisante il faut scinder la base en deux parties qui vont correspondre à 
 
@@ -129,3 +147,4 @@ gdata::keep(operation, operation_description_peche, operation_donnees_environnem
 save.image(file = "processed_data/tables_selectionnees.RData")
 ```
 
+# Ouf !

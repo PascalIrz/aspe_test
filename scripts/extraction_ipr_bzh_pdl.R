@@ -158,27 +158,32 @@ ipr <- extraire_ipr(passerelle = passerelle,
 
 
 
-ipr_large <- passer_ipr_large(ipr_df = ipr)
+ipr_large <- passer_ipr_large(ipr_df = ipr) %>%
+  select(-libelle_point)
 
 # Exporration au format csv lisible par Excel
 write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv",
            row.names = FALSE, na = "")
 
-n_mini_annees <- 7
+n_mini_annees <- 4
 
-stations_suivies <- ipr_bzh_pdl %>%
+stations_suivies <- ipr %>%
   group_by(sta_id) %>%
   tally() %>%
   filter(n >= n_mini_annees) %>%
   pull(sta_id)
 
-data <- ipr_bzh_pdl %>%
+data <- ipr %>%
   filter(sta_id %in% stations_suivies) %>%
   mutate(nom = paste(dept, libelle_station) %>% str_wrap(width = 20))
 
-ggplot(data = data, aes(x = annee, y = ipr)) +
-    geom_point() +
-  facet_wrap(~nom)
+ma_station <- stations_suivies[1]
+
+data %>%
+  filter(sta_id == ma_station) %>%
+  ggplot(aes(x = annee, y = ipr)) +
+    geom_bar(stat = "identity")
+
 
 # -------------------------------------------------------------------------------
 # Mise en forme pour entrée dans macro Excel de calcul de l'ipr
@@ -291,7 +296,47 @@ captures <- data %>%
 
 final <- bind_cols(ref_operation, v1 = NA, var_env, v2 = NA, captures)
 
-write.csv2(final, "processed_data/aspe_format_macro.csv",
+renommer_pour_macro <- function(data, fichier_macro) {
+
+  noms_colonnes <- readxl::read_xlsx(fichier_macro, skip = 1)
+
+  noms_especes <- noms_colonnes %>%
+    select(ABLab:VANab) %>%
+    names() %>%
+    str_sub(start = 1, end = 3)
+
+  # il manque les espèces suivantes :
+  noms_especes_manquantes <- base::setdiff(noms_especes, names(data))
+
+  # il faut les rajouter
+  data <- data %>%
+    `is.na<-`(noms_especes_manquantes)
+
+  ref_operation <- data %>%
+    select(ope_id:ope_date) %>%
+    mutate(ope_date = format(ope_date, format = "%d/%m/%Y"))
+
+  names(ref_operation) <- noms_colonnes %>%
+    select(1:4) %>%
+    names()
+
+  var_env <- data %>%
+    select(opi_param_surf:opi_param_bassin)
+
+  names(var_env) <- noms_colonnes %>%
+    select(6:15) %>%
+    names()
+
+  captures <- data %>%
+    select(all_of(noms_especes))
+
+  bind_cols(ref_operation, v1 = NA, var_env, v2 = NA, captures)
+
+}
+
+data <- renommer_pour_macro(data = data, fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
+
+write.csv2(data, "processed_data/aspe_format_macro.csv",
            row.names = FALSE,
            na = "")
 

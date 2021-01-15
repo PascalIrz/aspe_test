@@ -1,0 +1,63 @@
+---
+title: "Base Aspe : Les résultats par opération"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Objectif
+
+Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats de pêche sour différentes formes :
+
+- richesse en espèces
+- occurrence des espèces
+- abondances des espèces
+- densités des espèces
+
+Les étapes de chargement et d'activation du packages sont supposées déjà réalisées (voir autres supports).
+
+# Chargement des packages et des données
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "processed_data/tables_selectionnees.RData")
+```
+
+```{r, eval = TRUE, echo = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "../processed_data/tables_selectionnees.RData")
+```
+
+# Assemblage des données
+
+Les données dont il y a besoin sont dispersées dans diverses tables. C'est la tableau "passerelle" qui sert à les relier.
+
+```{r}
+passerelle <- creer_passerelle()
+```
+
+Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) : st_id; st_nom; st_long; ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof; numero_passage; code_esp; effectif; biomasse
+
+Données de captures $\Rightarrow$ table `lot_poissons`
+Données de superficie échantillonnée $\Rightarrow$ table `operation`
+Caractéristiques de la station $\Rightarrow$ table `station`
+
+
+
+
+
+
+
+
+
+
+
+
