@@ -38,7 +38,7 @@ library(tidyverse)
 load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
-# Assemblage des données
+# Assemblage d'une "passerelle"
 
 Les données dont il y a besoin sont dispersées dans diverses tables. C'est la tableau "passerelle" qui sert à les relier.
 
@@ -60,7 +60,7 @@ code_esp; effectif; biomasse
 
 On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données.
 
-# Filtrage du jeu de données
+# Filtrage de la passerelle
 
 Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables.
 
@@ -114,6 +114,99 @@ Dans la table `ref_protocole` on peut voir que les pêches complètes correspond
 ```{r}
 data <- data %>% 
   left_join(y = operation %>% select(ope_id, pro_id = ope_pro_id)) %>% 
-  filter(pro_id == 1)
+  filter(pro_id == 1) %>% 
+  select(-pro_id)
 ```
+
+# Incorporation des données
+
+## Captures
+
+```{r}
+data <- data %>% 
+  left_join(y = lot_poissons %>% select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
+  left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>% 
+  select(-esp_id)
+```
+
+# Surfaces échantillonnées
+
+```{r}
+data <- data %>% 
+  left_join(y = operation %>% select(ope_id, ope_surface_calculee))
+```
+# Abondances et densités par espèce, richesse
+
+Agrégation par opération et espèce.
+
+```{r}
+data <- data %>% 
+group_by(ope_id, esp_code_alternatif, ope_surface_calculee) %>% 
+    summarise(effectif = sum(lop_effectif)) %>% 
+ungroup()
+```
+
+Calcul des densités (en individus pour 1000 m^2).
+
+```{r}
+data <- data %>% 
+  mutate(densite_p_1000_m2 = 1000 * effectif / ope_surface_calculee) %>% 
+  select(-ope_surface_calculee)
+```
+
+Affichage du résultat.
+
+```{r}
+data %>% DT::datatable(rownames = FALSE)
+```
+
+On peut simplement en déduire la richesse spécifique.
+
+```{r}
+richesse <- data %>% 
+  group_by(ope_id) %>% 
+      summarise(richesse = n_distinct(esp_code_alternatif))
+```
+# Présentation des résultats
+
+Il peut être utile de présenter les tableaux de données faunistiques avec une colonne par espèce et une ligne par opération.
+
+```{r}
+densites_1col_p_sp <- data %>% 
+  select(-effectif) %>% 
+  pivot_wider(names_from = esp_code_alternatif, values_from = densite_p_1000_m2)
+```
+
+Pour ordonner les espèces par ordre alphabétique.
+
+```{r}
+noms_esp_ordonnes <- densites_1col_p_sp %>% 
+  select(-ope_id) %>% 
+  names() %>% 
+  sort()
+
+densites_1col_p_sp <- densites_1col_p_sp %>%
+  select(ope_id, all_of(noms_esp_ordonnes)) %>% 
+  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(is.na(.), 0, .))
+```
+
+Visualisation des premières lignes et colonnes.
+
+```{r}
+densites_1col_p_sp %>% select(1:7) %>% head(20) %>% DT::datatable(rownames = FALSE)
+```
+
+Si l'on veut juste les présence / absence.
+
+```{r}
+pa_1col_p_sp <- densites_1col_p_sp %>% 
+  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(. == 0, 0, 1))
+```
+
+Visualisation des premières lignes et colonnes.
+
+```{r}
+pa_1col_p_sp %>% select(1:7) %>% head(20) %>% DT::datatable(rownames = FALSE)
+```
+
 
