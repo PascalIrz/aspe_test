@@ -1,22 +1,24 @@
 ---
-title: "Base Aspe : Les résultats par opération"
+title: "Traitements de base à partir des lots"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
 ```
 
 # Objectif
 
-Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats de pêche sour différentes formes :
+Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats de pêche sous différentes formes :
 
 - richesse en espèces
 - occurrence des espèces
 - abondances des espèces
 - densités des espèces
+
+Les analyses faisant appel aux mesures réalisées sur chaque individu (taille, longueur, pathologies ...) ne sont pas abordées ici. 
 
 Les étapes de chargement et d'activation du packages sont supposées déjà réalisées (voir autres supports).
 
@@ -26,14 +28,14 @@ Les étapes de chargement et d'activation du packages sont supposées déjà ré
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/tables_selectionnees.RData")
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/tables_selectionnees.RData")
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 # Assemblage des données
@@ -58,27 +60,60 @@ code_esp; effectif; biomasse
 
 On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données.
 
+# Filtrage du jeu de données
+
+Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables.
+
+Outre le filtrage régional, dans l'exemple ci-dessous, on ne va retenir que les premiers passages des pêches complètes, réalisées à pied.
+
+## Filtrage régional
+
 ```{r}
-operation_syntheses <- operation %>% 
-  select(ope_id, ope_date, ope_surface_calculee, ope_pro_id, ) %>% 
-  left_join(y = operation_donnees_environnementales %>% select(ope_id = ode_ope_id, ode_profondeur_moyenne_station))
+
+depts_bzh <- c(22, 29, 35, 56)
+
+id_stations_bzh <- station %>%
+  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>%
+  filter(sta_dept %in% depts_bzh) %>%
+  pull(sta_id)
 
 data <- passerelle %>% 
-  left_join(y = lot_poissons %>% select(lop_id, lop_tyl_id, lop_poids, lop_esp_id, lop_effectif)) %>% 
-  left_join(y = operation_syntheses)
-  left_join(y = station %>% select(sta_id, sta_libelle_sandre))
-  
+  filter(sta_id %in% id_stations_bzh)
+```
+
+## Filtrage sur le moyen de pêche
+
+Récupération des champs nécessaires dans les tables `operation_description_peche` et `ref_moyen_prospection` :
+
+```{r}
+data <- data %>% 
+  left_join(y = operation_description_peche %>% select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
+  left_join(y = ref_moyen_prospection %>% select(mop_id, mop_libelle))
 
 names(data)
 ```
 
+Filtrage :
 
+```{r}
+data <- data %>% 
+  filter(mop_libelle == 'A pied')
+```
 
+On peut ensuite supprimer les colonnes qui ne servent plus
 
+```{r}
+data <- data %>% 
+  select(-mop_id, -mop_libelle)
+```
 
+## Filtrage sur la méthode de prospection
 
+Dans la table `ref_protocole` on peut voir que les pêches complètes correspondent à la variable `pro_id` égale à `1`. Pour filtrer plus rapidement que montré dans les exemple ci-dessus, on peut filtrer sur cette méthode.
 
-
-
-
+```{r}
+data <- data %>% 
+  left_join(y = operation %>% select(ope_id, pro_id = ope_pro_id)) %>% 
+  filter(pro_id == 1)
+```
 

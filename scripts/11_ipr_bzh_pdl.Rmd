@@ -1,5 +1,5 @@
 ---
-title: "Base Aspe : Les IPR en Bretagne - Pays de Loire"
+title: "Les IPR en région"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: html_document
@@ -59,6 +59,7 @@ Pour simplifier les différents traitements et éviter d'avoir à reproduire à 
 
 ```{r}
 passerelle <- creer_passerelle()
+names(passerelle)
 ```
 
 Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).
@@ -139,7 +140,7 @@ write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv",
 
 # Mise en forme pour la macro Excel de calcul de l'IPR
 
-Les notes IPR présentes dans la table `opetation_ipr` de la base ASPE sont calculées par le SEEE. Auparavant, ce calcul était effectué par une macro Excel qui prenait en entrée les caractéristiques de la station, la surface pêchée et les captures par espèce. En sortie elle fournissait les 7 métriques et l'indice agrégé.
+Les notes IPR présentes dans la table `operation_ipr` de la base ASPE sont calculées par le SEEE. Auparavant, ce calcul était effectué par une macro Excel qui prenait en entrée les caractéristiques de la station, la surface pêchée et les captures par espèce. En sortie elle fournissait les 7 métriques et l'indice agrégé.
 
 Première étape : structuration du tableau.
 
@@ -151,16 +152,15 @@ names(data)
 
 Seconde étape : Sélection et renommage des variables.
 
-```{r, eval = TRUE, echo = FALSE}
-data <- renommer_pour_macro(data = data, fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
-names(data)
-```
-
 ```{r, eval = FALSE, echo = TRUE}
 data <- renommer_pour_macro(data = data, fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
 names(data)
 ```
 
+```{r, eval = TRUE, echo = FALSE}
+data <- renommer_pour_macro(data = data, fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
+names(data)
+```
 
 Exportation du tableau mis en forme.
 

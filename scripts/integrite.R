@@ -102,7 +102,7 @@ devtools::install_github("pascalirz/aspe")
 
 # ----------------------------------------------------------------------------------
 # envoi des tables à Thierry.
-# commencer pas tout effacer
+# commencer par tout effacer
 # rm(list = ls())
 mon_fichier_dump <- "raw_data/2020_01_12_aspe.sql.gz"
 importer_dump_sql(fichier_dump = mon_fichier_dump)
@@ -126,3 +126,29 @@ map2(.x = dfs,
 files2zip <- dir('processed_data/exports_pour_thierry/', full.names = TRUE)
 zip(zipfile = 'processed_data/exports_pour_thierry/export_r',
     files = files2zip)
+
+
+# ----------------------------------------------------------------------------------
+# Recherche d'un champ parmi les tables
+
+st_id; st_nom; st_long;
+ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof;
+numero_passage;
+code_esp; effectif; biomasse
+
+noms_tables <- Filter(function(x) is.data.frame(get(x)), ls())
+
+noms_champs <- map(.x = noms_tables,
+                   .f = function(x) names(get(x))) %>%
+               unlist() %>%
+               str_replace_all(pattern = '\"', replacement = "")
+
+tous_id <- noms_champs %>%
+  str_subset(pattern = '_id')
+
+mon_pattern <- 'pas_id'
+mes_champs <- noms_champs  %>%
+  str_subset(pattern = mon_pattern)
+
+
+

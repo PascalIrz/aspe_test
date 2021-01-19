@@ -12,7 +12,7 @@
 <meta name="author" content="Pascal Irz" />
 
 
-<title>Base Aspe : Les IPR en Bretagne - Pays de Loire</title>
+<title>Les IPR en région</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -2940,9 +2940,9 @@ summary {
 
 
 
-<h1 class="title toc-ignore">Base Aspe : Les IPR en Bretagne - Pays de Loire</h1>
+<h1 class="title toc-ignore">Les IPR en région</h1>
 <h4 class="author">Pascal Irz</h4>
-<h4 class="date">Le 15 janvier 2021</h4>
+<h4 class="date">Le 19 janvier 2021</h4>
 
 </div>
 
@@ -2980,7 +2980,9 @@ load(file = &quot;processed_data/tables_selectionnees.RData&quot;)</code></pre>
 <div id="principe" class="section level2">
 <h2>Principe</h2>
 <p>Pour simplifier les différents traitements et éviter d’avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n’incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé “passerelle” en ce qu’il fait la jonction entre les diféfrentes composantes de la base.</p>
-<pre class="r"><code>passerelle &lt;- creer_passerelle()</code></pre>
+<pre class="r"><code>passerelle &lt;- creer_passerelle()
+names(passerelle)</code></pre>
+<pre><code>## [1] &quot;sta_id&quot; &quot;pop_id&quot; &quot;ope_id&quot; &quot;obj_id&quot; &quot;pre_id&quot; &quot;lop_id&quot;</code></pre>
 <p>Comme cette table est assez importante (5525722 lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).</p>
 <pre class="r"><code>depts_bzh_pdl &lt;- c(22, 29, 35, 56, 44, 53, 72, 49, 85)
 
@@ -3034,7 +3036,7 @@ ipr &lt;- extraire_ipr(passerelle = passerelle,
 </div>
 <div id="mise-en-forme-pour-la-macro-excel-de-calcul-de-lipr" class="section level1">
 <h1>Mise en forme pour la macro Excel de calcul de l’IPR</h1>
-<p>Les notes IPR présentes dans la table <code>opetation_ipr</code> de la base ASPE sont calculées par le SEEE. Auparavant, ce calcul était effectué par une macro Excel qui prenait en entrée les caractéristiques de la station, la surface pêchée et les captures par espèce. En sortie elle fournissait les 7 métriques et l’indice agrégé.</p>
+<p>Les notes IPR présentes dans la table <code>operation_ipr</code> de la base ASPE sont calculées par le SEEE. Auparavant, ce calcul était effectué par une macro Excel qui prenait en entrée les caractéristiques de la station, la surface pêchée et les captures par espèce. En sortie elle fournissait les 7 métriques et l’indice agrégé.</p>
 <p>Première étape : structuration du tableau.</p>
 <pre class="r"><code>data &lt;- formater_pour_macro(passerelle = passerelle,
                             date_debut = &#39;01/01/2020&#39;)
@@ -3061,6 +3063,8 @@ names(data)</code></pre>
 ## [58] &quot;HYC&quot;                &quot;VAN&quot;                &quot;LPR&quot;               
 ## [61] &quot;PFL&quot;                &quot;FLE&quot;</code></pre>
 <p>Seconde étape : Sélection et renommage des variables.</p>
+<pre class="r"><code>data &lt;- renommer_pour_macro(data = data, fichier_macro = &quot;raw_data/MacroIPR_Sortie.xlsx&quot;)
+names(data)</code></pre>
 <pre><code>##  [1] &quot;N° de code ou de référence&quot;                  
 ##  [2] &quot;Nom du cours d&#39;eau&quot;                          
 ##  [3] &quot;Nom de la station&quot;                           
@@ -3111,8 +3115,6 @@ names(data)</code></pre>
 ## [48] &quot;TRFab&quot;                                       
 ## [49] &quot;VAIab&quot;                                       
 ## [50] &quot;VANab&quot;</code></pre>
-<pre class="r"><code>data &lt;- renommer_pour_macro(data = data, fichier_macro = &quot;raw_data/MacroIPR_Sortie.xlsx&quot;)
-names(data)</code></pre>
 <p>Exportation du tableau mis en forme.</p>
 <pre class="r"><code>write.csv2(data, &quot;processed_data/aspe_format_macro.csv&quot;,
            row.names = FALSE,

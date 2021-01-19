@@ -12,7 +12,7 @@
 <meta name="author" content="Pascal Irz" />
 
 
-<title>Base Aspe : Les résultats par opération</title>
+<title>Traitements de base à partir des lots</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -384,22 +384,23 @@ summary {
 
 
 
-<h1 class="title toc-ignore">Base Aspe : Les résultats par opération</h1>
+<h1 class="title toc-ignore">Traitements de base à partir des lots</h1>
 <h4 class="author">Pascal Irz</h4>
-<h4 class="date">Le 15 janvier 2021</h4>
+<h4 class="date">Le 19 janvier 2021</h4>
 
 </div>
 
 
 <div id="objectif" class="section level1">
 <h1>Objectif</h1>
-<p>Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats de pêche sour différentes formes :</p>
+<p>Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats de pêche sous différentes formes :</p>
 <ul>
 <li>richesse en espèces</li>
 <li>occurrence des espèces</li>
 <li>abondances des espèces</li>
 <li>densités des espèces</li>
 </ul>
+<p>Les analyses faisant appel aux mesures réalisées sur chaque individu (taille, longueur, pathologies …) ne sont pas abordées ici.</p>
 <p>Les étapes de chargement et d’activation du packages sont supposées déjà réalisées (voir autres supports).</p>
 </div>
 <div id="chargement-des-packages-et-des-données" class="section level1">
@@ -407,26 +408,76 @@ summary {
 <pre class="r"><code>library(aspe)
 library(tidyverse)
 
-load(file = &quot;processed_data/tables_selectionnees.RData&quot;)</code></pre>
+load(file = &quot;processed_data/toutes_tables_aspe_sauf_mei.RData&quot;)</code></pre>
+<pre><code>## -- Attaching packages -------------------------------------------------------------------------------------------------- tidyverse 1.3.0 --</code></pre>
+<pre><code>## v ggplot2 3.3.2     v purrr   0.3.4
+## v tibble  3.0.3     v dplyr   1.0.2
+## v tidyr   1.1.2     v stringr 1.4.0
+## v readr   1.3.1     v forcats 0.5.0</code></pre>
+<pre><code>## -- Conflicts ----------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
 </div>
 <div id="assemblage-des-données" class="section level1">
 <h1>Assemblage des données</h1>
 <p>Les données dont il y a besoin sont dispersées dans diverses tables. C’est la tableau “passerelle” qui sert à les relier.</p>
 <pre class="r"><code>passerelle &lt;- creer_passerelle()</code></pre>
+<pre><code>## Joining, by = &quot;pre_id&quot;</code></pre>
+<pre><code>## Joining, by = &quot;ope_id&quot;
+## Joining, by = &quot;ope_id&quot;</code></pre>
+<pre><code>## Joining, by = &quot;pop_id&quot;</code></pre>
 <ul>
 <li>Données de captures <span class="math inline">\(\Rightarrow\)</span> table <code>lot_poissons</code></li>
 <li>Données de superficie échantillonnée, méthode de pêche, etc. <span class="math inline">\(\Rightarrow\)</span> table <code>operation</code></li>
 <li>Numéro de passage (pour éventuellement n’en conserver qu’un) <span class="math inline">\(\Rightarrow\)</span> table <code>prelevement_elementaire</code></li>
 <li>Caractéristiques de la station <span class="math inline">\(\Rightarrow\)</span> table <code>station</code></li>
 </ul>
-<p>Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) : st_id; st_nom; st_long; ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof; numero_passage; code_esp; effectif; biomasse</p>
-<pre class="r"><code>data &lt;- passerelle %&gt;% 
-  left_join(y = station %&gt;% select(sta_id, sta_libelle_sandre))
+<p>Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) :</p>
+<p>st_id; st_nom; st_long; ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof; numero_passage; code_esp; effectif; biomasse</p>
+<p>On effectue donc une série de jointures “gauches” pour compléter la passerelle de ces données.</p>
+</div>
+<div id="filtrage-du-jeu-de-données" class="section level1">
+<h1>Filtrage du jeu de données</h1>
+<p>Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables.</p>
+<p>Outre le filtrage régional, dans l’exemple ci-dessous, on ne va retenir que les premiers passages des pêches complètes, réalisées à pied.</p>
+<div id="filtrage-régional" class="section level2">
+<h2>Filtrage régional</h2>
+<pre class="r"><code>depts_bzh &lt;- c(22, 29, 35, 56)
 
-names(data)</code></pre>
-<pre><code>## [1] &quot;sta_id&quot;             &quot;pop_id&quot;             &quot;ope_id&quot;            
-## [4] &quot;obj_id&quot;             &quot;pre_id&quot;             &quot;lop_id&quot;            
-## [7] &quot;sta_libelle_sandre&quot;</code></pre>
+id_stations_bzh &lt;- station %&gt;%
+  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %&gt;%
+  filter(sta_dept %in% depts_bzh) %&gt;%
+  pull(sta_id)
+
+data &lt;- passerelle %&gt;% 
+  filter(sta_id %in% id_stations_bzh)</code></pre>
+</div>
+<div id="filtrage-sur-le-moyen-de-pêche" class="section level2">
+<h2>Filtrage sur le moyen de pêche</h2>
+<p>Récupération des champs nécessaires dans les tables <code>operation_description_peche</code> et <code>ref_moyen_prospection</code> :</p>
+<pre class="r"><code>data &lt;- data %&gt;% 
+  left_join(y = operation_description_peche %&gt;% select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %&gt;% 
+  left_join(y = ref_moyen_prospection %&gt;% select(mop_id, mop_libelle))</code></pre>
+<pre><code>## Joining, by = &quot;ope_id&quot;</code></pre>
+<pre><code>## Joining, by = &quot;mop_id&quot;</code></pre>
+<pre class="r"><code>names(data)</code></pre>
+<pre><code>## [1] &quot;sta_id&quot;      &quot;pop_id&quot;      &quot;ope_id&quot;      &quot;obj_id&quot;      &quot;pre_id&quot;     
+## [6] &quot;lop_id&quot;      &quot;mop_id&quot;      &quot;mop_libelle&quot;</code></pre>
+<p>Filtrage :</p>
+<pre class="r"><code>data &lt;- data %&gt;% 
+  filter(mop_libelle == &#39;A pied&#39;)</code></pre>
+<p>On peut ensuite supprimer les colonnes qui ne servent plus</p>
+<pre class="r"><code>data &lt;- data %&gt;% 
+  select(-mop_id, -mop_libelle)</code></pre>
+</div>
+<div id="filtrage-sur-la-méthode-de-prospection" class="section level2">
+<h2>Filtrage sur la méthode de prospection</h2>
+<p>Dans la table <code>ref_protocole</code> on peut voir que les pêches complètes correspondent à la variable <code>pro_id</code> égale à <code>1</code>. Pour filtrer plus rapidement que montré dans les exemple ci-dessus, on peut filtrer sur cette méthode.</p>
+<pre class="r"><code>data &lt;- data %&gt;% 
+  left_join(y = operation %&gt;% select(ope_id, pro_id = ope_pro_id)) %&gt;% 
+  filter(pro_id == 1)</code></pre>
+<pre><code>## Joining, by = &quot;ope_id&quot;</code></pre>
+</div>
 </div>
 
 
