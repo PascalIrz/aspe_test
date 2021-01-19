@@ -21,14 +21,14 @@ Il suppose que les opérations d'importation depuis le `dump` ont été effectu�
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/tables_selectionnees.RData")
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/tables_selectionnees.RData")
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 # Grandes lignes de l'analyse
@@ -120,21 +120,21 @@ ipr %>% head() %>% DT::datatable()
 Si l'on veut les mêmes données mais avec une colonne par année :
 
 ```{r}
-ipr_large <- passer_ipr_large(ipr_df = ipr) %>% 
+ipr_1c_par_an <- passer_ipr_large(ipr_df = ipr) %>% 
   select(-libelle_point)
 ```
 
 Les noms des colonnes sont alors :
 
 ```{r}
-names(ipr_large)
+names(ipr_1c_par_an)
 ```
 
 
 Pour exporter le tableau en format utilisable simplement avec Excel :
 
 ```{r, eval = FALSE}
-write.csv2(ipr_large, file = "processed_data/ipr_bzh_pdl_large.csv",
+write.csv2(ipr_1c_par_an, file = "processed_data/ipr_bzh_pdl_large.csv",
            row.names = FALSE, na = "")
 ```
 
@@ -171,3 +171,51 @@ write.csv2(data, "processed_data/aspe_format_macro.csv",
 
 ```
 
+# Quelques mises en forme
+
+## Evolution par station dans un département
+
+Sélection des Stations avec 5 années de données ou plus.
+
+```{r}
+sta_plus_5a <- ipr %>% 
+    select(libelle_station, annee) %>% 
+    unique() %>% 
+    group_by(libelle_station) %>% 
+        summarise(n_annee = n_distinct(annee)) %>% 
+    filter(n_annee > 4) %>% 
+    pull(libelle_station) %>% 
+    as.character()
+```
+
+Définition du département et de la palette des couleurs.
+
+```{r}
+palette <- c("Très bon" = "darkblue", "Bon" = "darkgreen", "Moyen" = "yellow",
+          "Médiocre" = "orange", "Mauvais" = "red")
+
+mon_dept <- '22'
+```
+
+
+```{r, fig.width = 10, fig.height = 12}
+ipr %>% 
+  filter(dept == mon_dept & libelle_station %in% sta_plus_5a) %>% 
+  ggplot(aes(x = annee, y = ipr, fill = classe_ipr)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Année", y = "IPR", title = mon_dept, fill = "Classe IPR") +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1, big.mark = ''),
+                     breaks = seq(2010, 2020, 2))+
+  scale_y_continuous(limits = c(0, 40)) +
+  scale_fill_manual(values = palette) +
+  facet_wrap(~libelle_station, ncol = 3)
+```
+
+
+
+
+
+
+
+  
+  

@@ -20,7 +20,7 @@ Le présent document est un guide pour obtenir, à partir de la base Aspe, les r
 
 Les analyses faisant appel aux mesures réalisées sur chaque individu (taille, longueur, pathologies ...) ne sont pas abordées ici. 
 
-Les étapes de chargement et d'activation du packages sont supposées déjà réalisées (voir autres supports).
+Le chargement du package {aspe} est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
 
 # Chargement des packages et des données
 
@@ -51,31 +51,32 @@ passerelle <- creer_passerelle()
 - Numéro de passage (pour éventuellement n'en conserver qu'un) $\Rightarrow$ table `prelevement_elementaire`
 - Caractéristiques de la station $\Rightarrow$ table `station`
 
+<!-- Message de Nicolas Poulet
+
 Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) :
 
 st_id; st_nom; st_long;
 ope_id; ope_date; ope_methode; ope_moyen; ope_surf; ope_nb point; ope_nb zone; ope_long; ope_larg; ope_prof;
 numero_passage;
-code_esp; effectif; biomasse
+code_esp; effectif; biomasse your comment -->
 
-On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données.
+On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données. En général, comme seuls certains champs des tables sont nécessaires, on effectue des sélections de colonnes pour ne pas surcharger les `dataframe`.
 
 # Filtrage de la passerelle
 
-Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables.
+Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables et alléger les traitements.
 
-Outre le filtrage régional, dans l'exemple ci-dessous, on ne va retenir que les premiers passages des pêches complètes, réalisées à pied.
+Outre le filtrage régional, dans l'exemple ci-dessous, on ne va retenir que les pêches complètes, réalisées à pied.
 
 ## Filtrage régional
 
 ```{r}
-
 depts_bzh <- c(22, 29, 35, 56)
 
 id_stations_bzh <- station %>%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>%
-  filter(sta_dept %in% depts_bzh) %>%
-  pull(sta_id)
+  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
+  filter(sta_dept %in% depts_bzh) %>% # sélection des observations sur les numéros de dept
+  pull(sta_id) # extraction des identifiants des stations
 
 data <- passerelle %>% 
   filter(sta_id %in% id_stations_bzh)
@@ -83,24 +84,34 @@ data <- passerelle %>%
 
 ## Filtrage sur le moyen de pêche
 
-Récupération des champs nécessaires dans les tables `operation_description_peche` et `ref_moyen_prospection` :
+Récupération des champs nécessaires dans les tables `operation_description_peche` et `ref_moyen_prospection`. Cette dernière sert juste à faire correspondre un code avec un intitulé. 
+
+```{r, echo = FALSE}
+ref_moyen_prospection %>%
+  select(-mop_ordre_affichage) %>% 
+  knitr::kable(format = "html", table.attr = "style='width:40%;'") %>% 
+  kableExtra::kable_styling()
+```
+
 
 ```{r}
 data <- data %>% 
-  left_join(y = operation_description_peche %>% select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
-  left_join(y = ref_moyen_prospection %>% select(mop_id, mop_libelle))
+  left_join(y = operation_description_peche %>%
+                      select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
+  left_join(y = ref_moyen_prospection %>%
+                      select(mop_id, mop_libelle))
 
 names(data)
 ```
 
-Filtrage :
+Filtrage.
 
 ```{r}
 data <- data %>% 
   filter(mop_libelle == 'A pied')
 ```
 
-On peut ensuite supprimer les colonnes qui ne servent plus
+On peut ensuite supprimer les colonnes qui ne servent plus.
 
 ```{r}
 data <- data %>% 
@@ -121,6 +132,8 @@ data <- data %>%
 # Incorporation des données
 
 ## Captures
+
+On complète les données par les effectifs, qui sont dans la table `lot_poissons` et on change les codes espèces pour les anciens codes à trois lettres. La correspondance est indiquée dans la table `ref_espece`.
 
 ```{r}
 data <- data %>% 
@@ -208,5 +221,6 @@ Visualisation des premières lignes et colonnes.
 ```{r}
 pa_1col_p_sp %>% select(1:7) %>% head(20) %>% DT::datatable(rownames = FALSE)
 ```
+
 
 

@@ -146,7 +146,7 @@ noms_champs <- map(.x = noms_tables,
 tous_id <- noms_champs %>%
   str_subset(pattern = '_id')
 
-mon_pattern <- 'pas_id'
+mon_pattern <- 'den'
 mes_champs <- noms_champs  %>%
   str_subset(pattern = mon_pattern)
 
