@@ -155,8 +155,7 @@ Agrégation par opération et espèce.
 ```{r}
 data <- data %>% 
 group_by(ope_id, esp_code_alternatif, ope_surface_calculee) %>% 
-    summarise(effectif = sum(lop_effectif)) %>% 
-ungroup()
+    summarise(effectif = sum(lop_effectif))
 ```
 
 Calcul des densités (en individus pour 1000 m^2).
