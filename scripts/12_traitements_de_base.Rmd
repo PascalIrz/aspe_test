@@ -18,7 +18,7 @@ Le présent document est un guide pour obtenir, à partir de la base Aspe, les r
 - abondances des espèces
 - densités des espèces
 
-Les analyses faisant appel aux mesures réalisées sur chaque individu (taille, longueur, pathologies ...) ne sont pas abordées ici. 
+Les analyses faisant appel aux mesures réalisées sur chaque individu (masse, longueur, pathologies ...) ne sont pas abordées ici. 
 
 Le chargement du package {aspe} est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
 
@@ -172,13 +172,14 @@ Affichage du résultat.
 data %>% DT::datatable(rownames = FALSE)
 ```
 
-On peut simplement en déduire la richesse spécifique.
+On peut simplement en déduire la richesse spécifique, par opération.
 
 ```{r}
 richesse <- data %>% 
   group_by(ope_id) %>% 
       summarise(richesse = n_distinct(esp_code_alternatif))
 ```
+
 # Présentation des résultats
 
 Il peut être utile de présenter les tableaux de données faunistiques avec une colonne par espèce et une ligne par opération.

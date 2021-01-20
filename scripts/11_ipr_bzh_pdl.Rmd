@@ -188,14 +188,22 @@ sta_plus_5a <- ipr %>%
     as.character()
 ```
 
-Définition du département et de la palette des couleurs.
+Définition du département.
 
 ```{r, fig.width = 10, fig.height = 14}
 mon_dept <- '22'
+```
 
+Création du sous-jeu de données filtré pour le graphique.
+
+```{r, fig.width = 10, fig.height = 14}
 data <- ipr %>%
   filter(dept == mon_dept & libelle_station %in% sta_plus_5a)
+```
 
+Production du graphique.
+
+```{r, fig.width = 10, fig.height = 14}
 grapher_ipr_plusieurs_stations (ipr_df = data,
                                 stations_id = NA,
                                 premiere_annee = 2010,

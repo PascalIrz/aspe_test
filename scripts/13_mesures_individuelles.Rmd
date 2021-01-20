@@ -1,0 +1,45 @@
+---
+title: "Traitements sur les mesures individuelles"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
+```
+
+# Objectif
+
+Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats suivants :
+
+- distributions en taille et en masse
+- densité surfacique et volumique en biomasse
+
+Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque individu (masse, longueur)  
+
+Le chargement du package {aspe} est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
+
+# Chargement des packages et des données
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+```{r, eval = TRUE, echo = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+# Assemblage d'une "passerelle"
+
+Les données dont il y a besoin sont dispersées dans diverses tables. C'est la tableau "passerelle" qui sert à les relier.
+
+```{r}
+passerelle <- creer_passerelle()
+```
