@@ -16,9 +16,9 @@ Le présent document est un guide pour obtenir, à partir de la base Aspe, les r
 - distributions en taille et en masse
 - densité surfacique et volumique en biomasse
 
-Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque individu (masse, longueur)  
+Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque individu (masse, longueur). La table contenant ces données est la plus volumineuse de la base donc les traitements peuvent être chronophages à l'échelle de la France entière. Ici, nous allons à titre d'exemple restreindre l'analyse à un département : le Morbihan (56) et ne conserver que les pêches dites "complètes".
 
-Le chargement du package {aspe} est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
+Le chargement du package {aspe} est supposé déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
 
 # Chargement des packages et des données
 
@@ -26,14 +26,20 @@ Le chargement du package {aspe} est supposées déjà réalisé (voir [ce suppor
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/toutes_tables_aspe.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/toutes_tables_aspe.RData")
+```
+
+Vérification de la présence des tables dans l'environnement.
+
+```{r}
+ls()
 ```
 
 # Assemblage d'une "passerelle"
@@ -43,3 +49,68 @@ Les données dont il y a besoin sont dispersées dans diverses tables. C'est la 
 ```{r}
 passerelle <- creer_passerelle()
 ```
+
+## Filtrage sur le département 29
+
+```{r}
+id_stations_56 <- station %>%
+  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
+  filter(sta_dept == '56') %>% # sélection des observations sur les numéros de dept
+  pull(sta_id) # extraction des identifiants des stations
+
+data <- passerelle %>% 
+  filter(sta_id %in% id_stations_56)
+```
+
+## Filtrage sur la méthode de prospection
+
+Dans la table `ref_protocole` on peut voir que les pêches complètes correspondent à la variable `pro_id` égale à `1`. Pour filtrer plus rapidement que montré dans les exemple ci-dessus, on peut filtrer sur cette méthode.
+
+```{r}
+data <- data %>% 
+  left_join(y = operation %>%
+                    select(ope_id, pro_id = ope_pro_id)) %>% 
+  filter(pro_id == 1) %>% 
+  select(-pro_id)
+```
+
+# Incorporation des mesures individuelles
+
+Il s'agit de compléter le jeu de données, qui ne contient à ce stade que des identifiants, par les informations qui seront utiles pour l'interprétation. Par exemple il est plus facile de lier les résultats avec les codes espèces à trois lettres ou les noms des stations qu'avec les identifiants.
+
+```{r}
+data_ind <- data %>%
+    left_join(y = station %>%
+                      select(sta_id, sta_libelle_sandre)) %>% 
+    left_join(y = operation %>% 
+                      select(ope_id, ope_date)) %>% 
+    left_join(y = lot_poissons %>%
+                      select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>% 
+    left_join(y = ref_espece %>%
+                      select(esp_id, esp_code_alternatif)) %>% 
+    left_join(y = mesure_individuelle %>%
+                      rename(lop_id = mei_lop_id, tlo_id = mei_tlo_id)) %>%
+    left_join(y = ref_type_longueur %>% 
+                      select(tlo_id, tlo_libelle)) %>% 
+    mutate(ope_date = lubridate::ymd_hms(ope_date),
+           ope_date = lubridate::floor_date(ope_date, unit = "day")) %>% 
+    select(-obj_id, -mei_id, -tlo_id)
+
+```
+Blabla exliquer la signification des champs.
+
+## Histogramme des longueurs pour une espèce à l'occasion d'une opération.
+
+Nb de poissons capturés par opération et par espèce
+
+```{r}
+grapher_histo_longueur (indiv_df = data_ind,
+                        operation = 6313,
+                        especes = "GOU",
+                        type_longueur = "Fourche",
+                        n_intervalles = 25)
+```
+
+
+
+
