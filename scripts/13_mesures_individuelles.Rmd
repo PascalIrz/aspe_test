@@ -1,5 +1,5 @@
 ---
-title: "Traitements sur les mesures individuelles"
+title: "ASPE - Traitements sur les mesures individuelles"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: html_document
@@ -50,7 +50,7 @@ Les données dont il y a besoin sont dispersées dans diverses tables. C'est la 
 passerelle <- creer_passerelle()
 ```
 
-## Filtrage sur le département 29
+## Filtrage sur le département 56
 
 ```{r}
 id_stations_56 <- station %>%
@@ -101,7 +101,13 @@ Blabla exliquer la signification des champs.
 
 ## Histogramme des longueurs pour une espèce à l'occasion d'une opération.
 
-Nb de poissons capturés par opération et par espèce
+La fonction `grapher_histo_longueur()` sert à produire l'histogramme des longueurs mesurées (ou estimées à partir des poids) des individus. Elle prend en entrée :
+
+- le `dataframe` issu des étapes précédentes
+- le numéro d'opération
+- l'espèce (ou les espèces si l'on veut les regrouper, par exemple sous la forme `especes = c("CAS", "CAX", "CAG")`)
+- Le type de longueur, à choisir parmi `Fourche`, `Totale` ou `Estimée d'après le poids` avec la possibilité d'indiquer plusieurs types sous la forme `type_longueur = c("Fourche", "Estimée d'après le poids")`. 
+- Le nombre d'intervalles de longueur sur le graphique, qui est de 30 par défaut.
 
 ```{r}
 grapher_histo_longueur (indiv_df = data_ind,

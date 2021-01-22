@@ -1,5 +1,5 @@
 ---
-title: "Les IPR en région"
+title: "ASPE - Traitements sur les IPR"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: html_document
@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 Ce document donne un exemple de chaîne de traitement des données Aspe pour présenter des IPR sur une région et effectuer des vérifications au moyen de l'ancienne macro Excel de calcul de cet indice.
 
 Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`.
+
+Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `ipr_`.
 
 # Chargement des packages et des données
 
@@ -106,7 +108,7 @@ On va utiliser la passerelle pour assurer le lien entre des informations contenu
 ```{r}
 date_debut <- '01-01-2010'
 
-ipr <- extraire_ipr(passerelle = passerelle,
+ipr <- ipr_extraire(passerelle = passerelle,
                     date_debut = '01/01/2010',
                     date_fin = '31/12/2020')
 ```
@@ -120,7 +122,7 @@ ipr %>% head() %>% DT::datatable()
 Si l'on veut les mêmes données mais avec une colonne par année :
 
 ```{r}
-ipr_1c_par_an <- passer_ipr_large(ipr_df = ipr) %>% 
+ipr_1c_par_an <- ipr_pivoter_1colonne_par_an(ipr_df = ipr) %>% 
   select(-libelle_point)
 ```
 
@@ -145,7 +147,7 @@ Les notes IPR présentes dans la table `operation_ipr` de la base ASPE sont calc
 Première étape : structuration du tableau.
 
 ```{r, eval = TRUE}
-data <- formater_pour_macro(passerelle = passerelle,
+data <- ipr_formater_pour_macro(passerelle = passerelle,
                             date_debut = '01/01/2020')
 names(data)
 ```
@@ -153,12 +155,12 @@ names(data)
 Seconde étape : Sélection et renommage des variables.
 
 ```{r, eval = FALSE, echo = TRUE}
-data <- renommer_pour_macro(data = data, fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
+data <- ipr_renommer_pour_macro(data = data, fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
 names(data)
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
-data <- renommer_pour_macro(data = data, fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
+data <- ipr_renommer_pour_macro(data = data, fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
 names(data)
 ```
 
@@ -175,7 +177,7 @@ write.csv2(data, "processed_data/aspe_format_macro.csv",
 
 ## Evolution par station dans un département
 
-Sélection des Stations avec 5 années de données ou plus.
+Pour qu'une évolution temporelle ait un sens, il faut un minimum de données $\Rightarrow$ Sélection des stations avec 5 années de données ou plus.
 
 ```{r}
 sta_plus_5a <- ipr %>% 
@@ -204,12 +206,12 @@ data <- ipr %>%
 Production du graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
-grapher_ipr_plusieurs_stations (ipr_df = data,
-                                stations_id = NA,
-                                premiere_annee = 2010,
-                                derniere_annee = NA,
-                                titre = "Côtes d'Armor",
-                                palette = NA)
+ipr_grapher_plusieurs_stations(ipr_df = data,
+                               stations_id = NA,
+                               premiere_annee = 2010,
+                               derniere_annee = NA,
+                               titre = "Côtes d'Armor",
+                               palette = NA)
 ```
 
 
