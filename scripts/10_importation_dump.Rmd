@@ -75,6 +75,10 @@ Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Wa
 imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql.gz")
 ```
 
+L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
+
+![](../assets/message_erreur_import.png)
+
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite.
 
 ```{r, eval = FALSE}
@@ -95,7 +99,7 @@ La première étape est de scinder le `dump` en deux parties qui seront stockée
 Ce découpage prend 5-10'.
 
 ```{r, eval = FALSE}
-imp_scinder_dump(fichier_dump = "raw_data/aspe.sql")
+imp_scinder_dump(fichier_dump = "raw_data/aspe.sql.gz")
 ```
 
 >NB : Cette opération peut être bloquée si le chemin d'accès est trop long, ce qui retourne un message d'erreur :
@@ -129,7 +133,9 @@ Sinon, on importe tout (environ 5') puis on fera le tri.
 imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
 ```
 
-Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`.
+Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`. L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
+
+![](../assets/message_erreur_import.png)
 
 ```{r, eval = FALSE}
 rm(lignes_autres_tables)
