@@ -43,7 +43,7 @@ load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 Les données dont il y a besoin sont dispersées dans diverses tables. C'est la tableau "passerelle" qui sert à les relier.
 
 ```{r}
-passerelle <- creer_passerelle()
+passerelle <- mef_creer_passerelle()
 ```
 
 - Données de captures $\Rightarrow$ table `lot_poissons`
