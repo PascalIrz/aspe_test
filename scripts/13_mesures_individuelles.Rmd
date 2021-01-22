@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
 
 # Objectif
 
-Le présent document est un guide pour obtenir, à partir de la base Aspe, les résultats suivants :
+Ce tutoriel est un guide pour obtenir, à partir de la base Aspe, les résultats suivants :
 
 - distributions en taille et en masse
 - densité surfacique et volumique en biomasse
@@ -19,6 +19,8 @@ Le présent document est un guide pour obtenir, à partir de la base Aspe, les r
 Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque individu (masse, longueur). La table contenant ces données est la plus volumineuse de la base donc les traitements peuvent être chronophages à l'échelle de la France entière. Ici, nous allons à titre d'exemple restreindre l'analyse à un département : le Morbihan (56) et ne conserver que les pêches dites "complètes".
 
 Le chargement du package {aspe} est supposé déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
+
+Les fonctions dédiées au traitement des mesures individuelles sont nommées avec le préfiwe `'mei_'`. Celles dédiées à la mise en forme des données par `'mef_'`.
 
 # Chargement des packages et des données
 
@@ -44,10 +46,10 @@ ls()
 
 # Assemblage d'une "passerelle"
 
-Les données dont il y a besoin sont dispersées dans diverses tables. C'est la tableau "passerelle" qui sert à les relier.
+Les données dont il y a besoin sont dispersées dans diverses tables. C'est le tableau "passerelle" qui sert à les relier.
 
 ```{r}
-passerelle <- creer_passerelle()
+passerelle <- mef_creer_passerelle()
 ```
 
 ## Filtrage sur le département 56
@@ -110,11 +112,11 @@ La fonction `grapher_histo_longueur()` sert à produire l'histogramme des longue
 - Le nombre d'intervalles de longueur sur le graphique, qui est de 30 par défaut.
 
 ```{r}
-grapher_histo_longueur (indiv_df = data_ind,
-                        operation = 6313,
-                        especes = "GOU",
-                        type_longueur = "Fourche",
-                        n_intervalles = 25)
+mei_grapher_histo_longueur(indiv_df = data_ind,
+                           operation = 6313,
+                           especes = "GOU",
+                           type_longueur = "Fourche",
+                           n_intervalles = 25)
 ```
 
 

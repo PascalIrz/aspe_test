@@ -441,7 +441,7 @@ library(tidyverse)</code></pre>
 <h2>Cas 1 : votre machine a 16Go de RAM ou plus</h2>
 <p>On importe la totalité de la base en une fois, ce qui est bien pratique. Dans la logique de l’arborescence du projet, le fichier de données - ici au format compressé archive <code>.gz</code> - est stocké dans le répertoire <code>raw_data</code>.</p>
 <p>Cette opération prend une dizaine de minutes. Quand elle est terminée, des <code>Warning</code> sont affichés dans la console, mais pas d’erreurs. Une centaine de <code>dataframe</code> apparaissent dans l’objet “Environnement” de RStudio.</p>
-<pre class="r"><code>importer_dump_sql(fichier_dump = &quot;raw_data/aspe.sql.gz&quot;)</code></pre>
+<pre class="r"><code>imp_importer_dump_sql(fichier_dump = &quot;raw_data/aspe.sql.gz&quot;)</code></pre>
 <p>Pour éviter d’avoir à répéter cet import, on peut en sauvegarder le résultat au format <code>.RData</code> de façon à y accéder plus rapidement par la suite.</p>
 <pre class="r"><code>save.image(file = &quot;processed_data/toutes_tables_aspe.RData&quot;)</code></pre>
 <blockquote>
@@ -457,7 +457,7 @@ library(tidyverse)</code></pre>
 <li>Le second contient le reste des lignes.</li>
 </ul>
 <p>Ce découpage prend 5-10’.</p>
-<pre class="r"><code>scinder_dump(fichier_dump = &quot;raw_data/aspe.sql&quot;)</code></pre>
+<pre class="r"><code>imp_scinder_dump(fichier_dump = &quot;raw_data/aspe.sql&quot;)</code></pre>
 <blockquote>
 <p>NB : Cette opération peut être bloquée si le chemin d’accès est trop long, ce qui retourne un message d’erreur :</p>
 </blockquote>
@@ -469,10 +469,10 @@ library(tidyverse)</code></pre>
 <pre class="r"><code>load(file = &#39;raw_data/lignes_autres_tables.RData&#39;)</code></pre>
 <p>Ce qui fait apparaître dans l’environnement un objet <code>lignes_autres_tables</code>.</p>
 <p>Puis, si l’on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l’argument <code>tables_a_extraire</code> en indiquant leur nom sous forme de vecteur.</p>
-<pre class="r"><code>importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
-                                    tables_a_extraire = c(&quot;station&quot;, &quot;facies&quot;))</code></pre>
+<pre class="r"><code>imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
+                               tables_a_extraire = c(&quot;station&quot;, &quot;facies&quot;))</code></pre>
 <p>Sinon, on importe tout (environ 5’) puis on fera le tri.</p>
-<pre class="r"><code>importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)</code></pre>
+<pre class="r"><code>imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)</code></pre>
 <p>Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire <code>processed_data</code>.</p>
 <pre class="r"><code>rm(lignes_autres_tables)
 save.image(file = &quot;processed_data/toutes_tables_aspe_sauf_mei.RData&quot;)</code></pre>

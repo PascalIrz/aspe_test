@@ -72,7 +72,7 @@ On importe la totalité de la base en une fois, ce qui est bien pratique. Dans l
 Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'objet "Environnement" de RStudio.
 
 ```{r, eval = FALSE}
-importer_dump_sql(fichier_dump = "raw_data/aspe.sql.gz")
+imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql.gz")
 ```
 
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite.
@@ -95,7 +95,7 @@ La première étape est de scinder le `dump` en deux parties qui seront stockée
 Ce découpage prend 5-10'.
 
 ```{r, eval = FALSE}
-scinder_dump(fichier_dump = "raw_data/aspe.sql")
+imp_scinder_dump(fichier_dump = "raw_data/aspe.sql")
 ```
 
 >NB : Cette opération peut être bloquée si le chemin d'accès est trop long, ce qui retourne un message d'erreur :
@@ -119,14 +119,14 @@ Ce qui fait apparaître dans l'environnement un objet `lignes_autres_tables`.
 Puis, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur.
 
 ```{r, eval = FALSE}
-importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
-                                    tables_a_extraire = c("station", "facies"))
+imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
+                               tables_a_extraire = c("station", "facies"))
 ```
 
 Sinon, on importe tout (environ 5') puis on fera le tri.
 
 ```{r, eval = FALSE}
-importer_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
+imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
 ```
 
 Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`.
