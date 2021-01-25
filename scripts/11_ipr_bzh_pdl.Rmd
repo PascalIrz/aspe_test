@@ -60,7 +60,7 @@ Pour simplifier les différents traitements et éviter d'avoir à reproduire à 
 
 
 ```{r}
-passerelle <- creer_passerelle()
+passerelle <- mef_creer_passerelle()
 names(passerelle)
 ```
 
@@ -177,31 +177,34 @@ write.csv2(data, "processed_data/aspe_format_macro.csv",
 
 ## Evolution par station dans un département
 
-Pour qu'une évolution temporelle ait un sens, il faut un minimum de données $\Rightarrow$ Sélection des stations avec 5 années de données ou plus.
-
-```{r}
-sta_plus_5a <- ipr %>% 
-    select(libelle_station, annee) %>% 
-    unique() %>% 
-    group_by(libelle_station) %>% 
-        summarise(n_annee = n_distinct(annee)) %>% 
-    filter(n_annee > 4) %>% 
-    pull(libelle_station) %>% 
-    as.character()
-```
-
 Définition du département.
 
 ```{r, fig.width = 10, fig.height = 14}
 mon_dept <- '22'
 ```
 
-Création du sous-jeu de données filtré pour le graphique.
+Création du sous-jeu de données filtré pour le graphique. En outre, pour qu'une évolution temporelle ait un sens, il faut un minimum de données $\Rightarrow$ Sélection des stations avec 5 années de données ou plus.
+
 
 ```{r, fig.width = 10, fig.height = 14}
 data <- ipr %>%
-  filter(dept == mon_dept & libelle_station %in% sta_plus_5a)
+  filter(dept == mon_dept)
+
+DT::datatable(data)
 ```
+
+
+```{r}
+# sta_plus_5a <- ipr %>% 
+#     select(libelle_station, annee) %>% 
+#     unique() %>% 
+#     group_by(libelle_station) %>% 
+#         summarise(n_annee = n_distinct(annee)) %>% 
+#     filter(n_annee > 4) %>% 
+#     pull(libelle_station) %>% 
+#     as.character()
+```
+
 
 Production du graphique.
 
@@ -211,8 +214,13 @@ ipr_grapher_plusieurs_stations(ipr_df = data,
                                premiere_annee = 2010,
                                derniere_annee = NA,
                                titre = "Côtes d'Armor",
-                               palette = NA)
+                               palette = NA,
+                               nb_mini_annees = 2,
+                               max_axe_y = 50)
 ```
+
+
+
 
 
 
