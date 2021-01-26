@@ -183,8 +183,7 @@ Définition du département.
 mon_dept <- '22'
 ```
 
-Création du sous-jeu de données filtré pour le graphique. En outre, pour qu'une évolution temporelle ait un sens, il faut un minimum de données $\Rightarrow$ Sélection des stations avec 5 années de données ou plus.
-
+Création du sous-jeu de données filtré pour le graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
 data <- ipr %>%
@@ -194,31 +193,45 @@ DT::datatable(data)
 ```
 
 
-```{r}
-# sta_plus_5a <- ipr %>% 
-#     select(libelle_station, annee) %>% 
-#     unique() %>% 
-#     group_by(libelle_station) %>% 
-#         summarise(n_annee = n_distinct(annee)) %>% 
-#     filter(n_annee > 4) %>% 
-#     pull(libelle_station) %>% 
-#     as.character()
-```
 
+Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
 
-Production du graphique.
+- filtrer les données pour préciser la période (arguments `premiere_annee` et `derniere_annee`) et les identifiants des stations (`stations_id`)
+- filtrer les stations pour ne retenir que celles avec suffisamment d'années de données (`nb_mini_annees`)
+- ajouter un titre au graphique (`titre`)
+- modifier la mise en forme du graphique en fixant une limite supérieure à l'axe des ordonnées (IPR) pour éviter qu'une observation extrême nuise à la lisibilité de l'ensemble (`max_axe_y`), en choisissant le nombre de colonnes de graphiques (`nb_colonnes`) et choisissant une palette de couleurs à associer aux modalités des classes d'IPR
+
+Le graphique de sortie étant un un objet de classe `ggplot`, il peut être modifié par certaines des fonctions de ce `package`. 
 
 ```{r, fig.width = 10, fig.height = 14}
-ipr_grapher_plusieurs_stations(ipr_df = data,
-                               stations_id = NA,
-                               premiere_annee = 2010,
-                               derniere_annee = NA,
-                               titre = "Côtes d'Armor",
-                               palette = NA,
-                               nb_mini_annees = 2,
-                               max_axe_y = 50)
+data %>%
+  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
+  ipr_grapher_plusieurs_stations(titre = mon_dept,
+                                 max_axe_y = 40)
 ```
 
+Si l'on veut sauvegarder le graphique en mettant comme titre le nom du département (ici dans le sous-répertoire "processed_data").
+
+```{r, eval = FALSE}
+mon_dept <- '29'
+
+mon_dept_libelle <- departement %>%
+  filter(dep_code_insee == mon_dept) %>%
+  pull(dep_libelle)
+
+data <- ipr %>%
+  filter(dept == mon_dept)
+
+graph <- data %>%
+  mef_filtrer_sta_annee(premiere_annee = 2010) %>%
+  ipr_grapher_plusieurs_stations(titre = mon_dept_libelle,
+                                 max_axe_y = 40)
+
+ggsave(filename = paste("processed_data/ipr_", mon_dept, ".png"),
+       width = 15,
+       height = 25,
+       units = 'cm')
+```
 
 
 
