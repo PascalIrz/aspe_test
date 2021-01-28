@@ -151,26 +151,6 @@ noms_champs  %>%
   str_subset(pattern = mon_pattern)
 
 
-# ----------------------------------------------------------------------------------
-# vérificatiosn opérations en 2020
-# au 19/01/2021, il y a en ligne sur la base 209 opérations enregistrées
-
-depts_bzh <- c(22)
-
-id_stations_bzh <- station %>%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
-  filter(sta_dept %in% depts_bzh) %>% # sélection des observations sur les numéros de dept
-  pull(sta_id) # extraction des identifiants des stations
-
-bzh_2020 <- passerelle %>%
-  filter(sta_id %in% id_stations_bzh) %>%
-  left_join(y = operation %>% select(ope_id, ope_date)) %>%
-  mutate(ope_date  = as.character(ope_date),
-         ope_date = lubridate::ymd_hms(ope_date),
-         annee = lubridate::year(ope_date)) %>%
-  filter(annee == 2020) %>%
-  pull(ope_id) %>%
-  unique()
 
 
 

@@ -187,7 +187,9 @@ Création du sous-jeu de données filtré pour le graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
 data <- ipr %>%
-  filter(dept == mon_dept)
+  filter(dept == mon_dept) %>% 
+  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 5)
 
 DT::datatable(data)
 ```
@@ -201,41 +203,111 @@ Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ip
 - ajouter un titre au graphique (`titre`)
 - modifier la mise en forme du graphique en fixant une limite supérieure à l'axe des ordonnées (IPR) pour éviter qu'une observation extrême nuise à la lisibilité de l'ensemble (`max_axe_y`), en choisissant le nombre de colonnes de graphiques (`nb_colonnes`) et choisissant une palette de couleurs à associer aux modalités des classes d'IPR
 
-Le graphique de sortie étant un un objet de classe `ggplot`, il peut être modifié par certaines des fonctions de ce `package`. 
 
 ```{r, fig.width = 10, fig.height = 14}
-data %>%
-  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
-  ipr_grapher_plusieurs_stations(titre = mon_dept,
-                                 max_axe_y = 40)
+mon_graphique <- ipr_grapher_plusieurs_stations(ipr_df = data,
+                                                titre = mon_dept,
+                                                max_axe_y = 40)
+mon_graphique # affichage à l'écran
 ```
 
-Si l'on veut sauvegarder le graphique en mettant comme titre le nom du département (ici dans le sous-répertoire "processed_data").
+Si l'on veut sauvegarder le graphique (ici dans le sous-répertoire "processed_data"), il faut utiliser la fonction `ggsave()` Le choix de l'extension choisie ("png", "jpg", ".bmp") détermine le format de sortie.
+
+Le graphique de sortie étant un un objet de classe `ggplot`, il peut être modifié par certaines des fonctions de ce `package`. Par exemple, les différences mineures entre l'affichage à l'écran et la sauvegarde font que la taille de police n'est pas toujours bien adaptée au format d'export. Dans ce cas, on peut modifier la taille de certains éléments texte comme ici le nom de la station :
+
+```{r}
+mon_graphique <- mon_graphique +
+  theme(strip.text.x = element_text(size = 7))
+```
+
+>NB la synthaxe du package `ggplot` utilise pour enchaîner les manipulations l'opérateur `+` au lieu du ` %>%` ailleurs ...
+
+Chemin de sauvegarde et nommage du fichier (concaténation avec la fonction `paste0()`) :
+
+```{r, eval = TRUE}
+mon_chemin <- paste0("processed_data/ipr_", mon_dept, ".png")
+mon_chemin
+```
+
+Sauvegarde :
 
 ```{r, eval = FALSE}
-mon_dept <- '29'
-
-mon_dept_libelle <- departement %>%
-  filter(dep_code_insee == mon_dept) %>%
-  pull(dep_libelle)
-
-data <- ipr %>%
-  filter(dept == mon_dept)
-
-graph <- data %>%
-  mef_filtrer_sta_annee(premiere_annee = 2010) %>%
-  ipr_grapher_plusieurs_stations(titre = mon_dept_libelle,
-                                 max_axe_y = 40)
-
-ggsave(filename = paste("processed_data/ipr_", mon_dept, ".png"),
-       width = 15,
-       height = 25,
-       units = 'cm')
+ggsave(filename = mon_chemin,
+       plot = mon_graphique,
+       width = 15, # largeur
+       height = 25, # hauteur
+       units = 'cm') # unité.
 ```
 
+Pour automatiser la production des graphiques sur un ensemble de départements, on peut utiliser les fonctions de la famille `map` du package `purrr` afin d'appliquer les fonctions non plus à chaque fois sur un objet (ex : le nom du département ou le graphique) mais sur une liste contenant plusieurs objets (ex : les noms des départements ou les graphiques).
 
+```{r}
+mes_depts <- c('35', '22', '56', '29')
 
+depts_libelles <- departement %>%
+  filter(dep_code_insee %in% mes_depts) %>%
+  pull(dep_libelle) %>% 
+  as.character()
 
+depts_libelles
+```
+
+Filtrage du jeu de données aux départements concernés, à partir de 2010 et en excluant les stations avec moins de 5 années de données.
+
+```{r}
+data <- ipr %>%
+  filter(dept %in% mes_depts) %>% 
+  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 5)
+```
+
+On scinde le tableau pour en avoir un par département. L'objet `data_par_dept` est une liste contenant un `dataframe` par département.
+
+```{r}
+data_par_dept <- split(data, data$dept)
+```
+
+Production des graphiques. La fonction `map2()` prend en arguments la fonction à appliquer ainsi que deux listes contenant les arguments de la fonction :
+
+- Fonction à appliquer : `.f = ipr_grapher_plusieurs_stations`
+- Première liste, celle des `dataframe` : `.x = data_par_dept`
+- Seconde liste, celle des titres des graphiques : `.y = depts_libelles`
+
+```{r}
+mes_graphiques <- map2(.x = data_par_dept,
+                       .y = depts_libelles,
+                       .f = ipr_grapher_plusieurs_stations)
+```
+
+L'objet `mes_graphiques` est une liste contenant autant d'éléments qu'il y a de graphiques, soit un par département. Pour accéder au x^ième^ de ces graphiques on le sélectionne dans la liste au moyen de `[[x]]`
+
+```{r, eval = FALSE}
+mes_graphiques[[3]]
+```
+
+Pour sauvegarder ces graphiques, on poursuit avec les fonctions `map()` quand on a une seule liste d'arguments à appliquer à la fonction et `map2()` quand il y en a deux.
+
+```{r, eval = FALSE}
+# mise des polices à l'échelle
+mes_graphiques <- map(.x = mes_graphiques,
+                      .f = function(x) {x + theme(strip.text.x = element_text(size = 7))})
+
+# construction des chemins et noms de fichiers
+mes_chemins <- paste0("processed_data/ipr_", mes_depts, ".png")
+mes_chemins
+
+# sauvegarde
+map2(.x = mes_chemins,
+     .y = mes_graphiques,
+     .f = ggsave,
+     width = 16, # largeur
+     height = 25, # hauteur
+     units = 'cm')
+```
+
+Comme tout se déroule à merveille, vous pouvez vérifier la présence des fichiers image sauvegardés dans le sous-répertoire de sortie.
+
+![](assets/fichers_png.png)
 
 
 
