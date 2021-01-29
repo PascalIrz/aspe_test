@@ -194,8 +194,6 @@ data <- ipr %>%
 DT::datatable(data)
 ```
 
-
-
 Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
 
 - filtrer les données pour préciser la période (arguments `premiere_annee` et `derniere_annee`) et les identifiants des stations (`stations_id`)
@@ -307,11 +305,13 @@ map2(.x = mes_chemins,
 
 Comme tout se déroule à merveille, vous pouvez vérifier la présence des fichiers image sauvegardés dans le sous-répertoire de sortie.
 
-![](assets/fichers_png.png)
+![](../assets/fichiers_png.png)
 
+## Analyse par métrique
 
+Il faut dans un premier temps collecter les données non seulement de l'indice agrégé mais de chacune de ses sept métriques. On peut s'intéresser aux valeurs des métriques elles-mêmes, mais aussi aux valeurs prédites par les modèles sous-jacents.
 
+Ci-dessus, un `dataframe` passerelle a déjà été constitué pour effectuer les liens entre tables :
 
+station $\Rightarrow$ point_prelevement $\Rightarrow$ operation
 
-  
-  

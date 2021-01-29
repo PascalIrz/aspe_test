@@ -31,7 +31,7 @@ library(tidyverse)
 load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
-```{r, eval = TRUE, echo = FALSE}
+```{r, eval = TRUE, echo = FALSE, message = FALSE}
 library(aspe)
 library(tidyverse)
 
@@ -51,6 +51,8 @@ passerelle <- mef_creer_passerelle()
 - Numéro de passage (pour éventuellement n'en conserver qu'un) $\Rightarrow$ table `prelevement_elementaire`
 - Caractéristiques de la station $\Rightarrow$ table `station`
 
+
+
 <!-- Message de Nicolas Poulet
 
 Pour ce qui est des traitements classiques (pour moi) : effectifs par espèces et par opérations avec comme champs de base (pas sûr que ça colle exactement à la dénomination de la base actuelle) :
@@ -62,6 +64,10 @@ code_esp; effectif; biomasse your comment -->
 
 On effectue donc une série de jointures "gauches" pour compléter la passerelle de ces données. En général, comme seuls certains champs des tables sont nécessaires, on effectue des sélections de colonnes pour ne pas surcharger les `dataframe`.
 
+Le message ci-dessous indique les noms des champs sur lesquels les jointures entre tables ont été opérées. 
+
+![](../assets/message_jointures.png)
+
 # Filtrage de la passerelle
 
 Il peut être utile de filtrer les données en amont des calculs pour éviter de mélanger des choses peu comparables et alléger les traitements.
@@ -71,13 +77,16 @@ Outre le filtrage régional, dans l'exemple ci-dessous, on ne va retenir que les
 ## Filtrage régional
 
 ```{r}
+# vecteur avec les numéros de département
 depts_bzh <- c(22, 29, 35, 56)
 
+# vecteur avec les identifiants des stations de la région (sta_id)
 id_stations_bzh <- station %>%
   mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
   filter(sta_dept %in% depts_bzh) %>% # sélection des observations sur les numéros de dept
   pull(sta_id) # extraction des identifiants des stations
 
+# filtrage de la passerelle sur les identifiants de stations retenus
 data <- passerelle %>% 
   filter(sta_id %in% id_stations_bzh)
 ```
@@ -93,8 +102,9 @@ ref_moyen_prospection %>%
   kableExtra::kable_styling()
 ```
 
+Pour éviter de surcharger notre `dataframe`, la jointure n'est pas opérée sur la totalité de la table `y`, mais uniquement sur une sélection de ses colonnes. Par exemple ci-dessous, au lieu de joindre la totalité de la table `operation_description_peche` avce ses 29 colonnes, on ne rajoute que les deux colonnes correspondant aux codes opération (`odp_ope_id` qui est renommé `ope_id` pour que la jointure se fasse automatiquement car les deux tables ont un champ en commun) et moyen de prospectionb (`odp_mop_id` qui est renommé `mop_id`).
 
-```{r}
+```{r, message = FALSE}
 data <- data %>% 
   left_join(y = operation_description_peche %>%
                       select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
@@ -124,7 +134,8 @@ Dans la table `ref_protocole` on peut voir que les pêches complètes correspond
 
 ```{r}
 data <- data %>% 
-  left_join(y = operation %>% select(ope_id, pro_id = ope_pro_id)) %>% 
+  left_join(y = operation %>%
+                    select(ope_id, pro_id = ope_pro_id)) %>% 
   filter(pro_id == 1) %>% 
   select(-pro_id)
 ```
@@ -133,37 +144,40 @@ data <- data %>%
 
 ## Captures
 
-On complète les données par les effectifs, qui sont dans la table `lot_poissons` et on change les codes espèces pour les anciens codes à trois lettres. La correspondance est indiquée dans la table `ref_espece`.
+On complète les données par les effectifs, qui sont dans la table `lot_poissons` et on remplace les codes espèces numériques par les anciens codes à trois lettres qui sont plus interprétables. La correspondance est indiquée dans la table `ref_espece`.
 
 ```{r}
 data <- data %>% 
-  left_join(y = lot_poissons %>% select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
-  left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif)) %>% 
+  left_join(y = lot_poissons %>%
+                    select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
+  left_join(y = ref_espece %>%
+                    select(esp_id, esp_code_alternatif)) %>% 
   select(-esp_id)
 ```
 
-# Surfaces échantillonnées
+## Surfaces échantillonnées
 
 ```{r}
 data <- data %>% 
   left_join(y = operation %>% select(ope_id, ope_surface_calculee))
 ```
-# Abondances et densités par espèce, richesse
+## Abondances et densités par espèce, richesse
 
-Agrégation par opération et espèce.
+Agrégation par opération et espèce (somme des effectifs par espèce pour chaque opération).
 
 ```{r}
 data <- data %>% 
-group_by(ope_id, esp_code_alternatif, ope_surface_calculee) %>% 
-    summarise(effectif = sum(lop_effectif))
+    group_by(ope_id, esp_code_alternatif, ope_surface_calculee) %>% 
+        summarise(effectif = sum(lop_effectif)) %>% 
+    ungroup()
 ```
 
-Calcul des densités (en individus pour 1000 m^2).
+Calcul des densités (en individus pour 1000 m^2^).
 
 ```{r}
 data <- data %>% 
   mutate(densite_p_1000_m2 = 1000 * effectif / ope_surface_calculee) %>% 
-  select(-ope_surface_calculee)
+  select(-ope_surface_calculee) # suppressio de la variable désormais inutile
 ```
 
 Affichage du résultat.
@@ -190,17 +204,20 @@ densites_1col_p_sp <- data %>%
   pivot_wider(names_from = esp_code_alternatif, values_from = densite_p_1000_m2)
 ```
 
-Pour ordonner les espèces par ordre alphabétique.
+Pour ordonner les espèces par ordre alphabétique dans le `dataframe`, on procède en deux temps :
+
+- création d'un vecteur contenant les noms des espèces, que l'on range par ordre alphabétique
+- ordonnancement des colonnes du `dataframe` selon ce vecteur
 
 ```{r}
 noms_esp_ordonnes <- densites_1col_p_sp %>% 
-  select(-ope_id) %>% 
-  names() %>% 
-  sort()
+  select(-ope_id) %>% # sélection des colonnes par espèce
+  names() %>% # récupération de leurs noms
+  sort() # rangement alphabétique 
 
 densites_1col_p_sp <- densites_1col_p_sp %>%
-  select(ope_id, all_of(noms_esp_ordonnes)) %>% 
-  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(is.na(.), 0, .))
+  select(ope_id, all_of(noms_esp_ordonnes)) %>% # mise des colonnes dans l'ordre souhaité
+  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(is.na(.), 0, .)) # remplacement des données manquantes par 0
 ```
 
 Visualisation des premières lignes et colonnes.
