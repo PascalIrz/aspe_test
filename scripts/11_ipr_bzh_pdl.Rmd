@@ -101,7 +101,7 @@ passerelle <- passerelle %>%
   distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
 ```
 
-# Bilan des IPR par station depuis 2010
+# Bilan des IPR par station
 
 On va utiliser la passerelle pour assurer le lien entre des informations contenues dans différentes tables.
 
@@ -143,6 +143,8 @@ write.csv2(ipr_1c_par_an, file = "processed_data/ipr_bzh_pdl_large.csv",
 # Mise en forme pour la macro Excel de calcul de l'IPR
 
 Les notes IPR présentes dans la table `operation_ipr` de la base ASPE sont calculées par le SEEE. Auparavant, ce calcul était effectué par une macro Excel qui prenait en entrée les caractéristiques de la station, la surface pêchée et les captures par espèce. En sortie elle fournissait les 7 métriques et l'indice agrégé.
+
+>NB Les noms des colonnes sont importés depuis le fichier contenant la macro Excel, nommé dans cet exemple `"MacroIPR_Sortie.xlsx"` et contenu dans le sous-répertoire `raw_data`.
 
 Première étape : structuration du tableau.
 
@@ -186,12 +188,12 @@ mon_dept <- '22'
 Création du sous-jeu de données filtré pour le graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
-data <- ipr %>%
+ipr_dept <- ipr %>%
   filter(dept == mon_dept) %>% 
   mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
   mef_filtrer_nb_mini_annees(nb_mini_annees = 5)
 
-DT::datatable(data)
+ipr_dept %>% head() %>% DT::datatable()
 ```
 
 Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
@@ -203,13 +205,13 @@ Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ip
 
 
 ```{r, fig.width = 10, fig.height = 14}
-mon_graphique <- ipr_grapher_plusieurs_stations(ipr_df = data,
+mon_graphique <- ipr_grapher_plusieurs_stations(ipr_df = ipr_dept,
                                                 titre = mon_dept,
                                                 max_axe_y = 40)
 mon_graphique # affichage à l'écran
 ```
 
-Si l'on veut sauvegarder le graphique (ici dans le sous-répertoire "processed_data"), il faut utiliser la fonction `ggsave()` Le choix de l'extension choisie ("png", "jpg", ".bmp") détermine le format de sortie.
+Si l'on veut sauvegarder le graphique (ici dans le sous-répertoire `"processed_data"`), il faut utiliser la fonction `ggsave()` Le choix de l'extension choisie ("png", "jpg", ".bmp") détermine le format de sortie.
 
 Le graphique de sortie étant un un objet de classe `ggplot`, il peut être modifié par certaines des fonctions de ce `package`. Par exemple, les différences mineures entre l'affichage à l'écran et la sauvegarde font que la taille de police n'est pas toujours bien adaptée au format d'export. Dans ce cas, on peut modifier la taille de certains éléments texte comme ici le nom de la station :
 
@@ -307,11 +309,174 @@ Comme tout se déroule à merveille, vous pouvez vérifier la présence des fich
 
 ![](../assets/fichiers_png.png)
 
-## Analyse par métrique
+# Analyse par métrique
+
+## Principe
 
 Il faut dans un premier temps collecter les données non seulement de l'indice agrégé mais de chacune de ses sept métriques. On peut s'intéresser aux valeurs des métriques elles-mêmes, mais aussi aux valeurs prédites par les modèles sous-jacents.
 
-Ci-dessus, un `dataframe` passerelle a déjà été constitué pour effectuer les liens entre tables :
+Ci-dessus, un `dataframe` passerelle a déjà été constitué pour effectuer les liens entre tables. Il est nécessaire de le filtrer pour ne conserver que les stations qui nous intéressent.
 
-station $\Rightarrow$ point_prelevement $\Rightarrow$ operation
+## Assemblage du `dataframe`
+
+Création d'un vecteur contenant les identifiants des opérations.
+
+```{r}
+mes_operations <- ipr_dept %>% 
+  pull(ope_id)
+```
+
+Préparation du `dataframe` 
+
+```{r}
+ipr_metriques <- passerelle %>% 
+  select(-pre_id, -lop_id) %>% # variables inutiles
+  distinct() %>% # suppression des lignes dupliquées
+  mef_ajouter_ope_date() %>% # ajout date et année
+  mef_filtrer_sta_annee(premiere_annee = 2010) %>% # filtrage sur l'année
+  filter(ope_id %in% mes_operations) %>% # filtrage sur les opérations
+  ipr_extraire_metriques() # ajout des métriques
+```
+
+Les noms des colonnes du tableau sont les suivants :
+
+```{r}
+names(ipr_metriques)
+```
+
+.
+.
+.
+.
+
+## Représentations graphiques sur une station
+
+### Sur une année
+
+Choix d'un identifiant de station.
+
+```{r}
+mon_id_station <- ipr_metriques %>% 
+  pull(sta_id) %>% 
+  unique() %>% 
+  .[1]
+```
+
+Création d'un extrait du `dataframe` général avec uniquement notre station.
+
+```{r}
+data_sta <- ipr_metriques %>%
+  filter(sta_id == mon_id_station) %>% 
+  mutate(annee_car = as.character(annee)) %>% 
+  column_to_rownames(var = "annee_car") 
+```
+
+La représentation graphique va faire appel au *package* `{fmsb}` qui nécessite une mise en forme assez spécifique des données.
+
+On veut produire le graphique pour une année = une ligne. Ici la dernière donnée disponible.
+
+```{r}
+mon_annee <- data_sta %>% 
+  pull(annee) %>% 
+  max()# choix d'une des lignes (= une année)
+
+mon_titre <- data_sta %>% # titre pour le graphique, en concaténant le nom de la station et l'année
+  filter(annee == mon_annee) %>% 
+  pull(titre)
+
+data_sta <- data_sta %>% 
+  select(annee, ner:dti) # sélection des colonnes nécessaires pour le graphique
+
+data_sta_1a <- data_sta %>% # tableau avec seulement la ligne de l'année sélectionnée
+  filter(annee == mon_annee) 
+
+maxi <- data_sta_1a %>% # valeur maximale pour les axes
+  select(-annee) %>% 
+  max() %>% 
+  ceiling()
+
+bornes_inf <- rep(x = 0, times = 7) 
+bornes_sup <- rep(x = maxi, times = 7)
+
+data_sta_1a <- rbind(bornes_sup, bornes_inf , data_sta_1a)
+
+knitr::kable(data_sta_1a, row.names = FALSE)
+```
+
+Production du graphique.
+
+```{r}
+library(fmsb)
+
+radarchart(data_sta_1a %>% select(-annee),
+           title = mon_titre,
+           axistype = 2,
+           pfcol = "grey50")
+```
+
+### Sur plusieurs années
+
+Nouveau titre sans l'année.
+
+```{r}
+mon_titre <- str_sub(mon_titre, end = -8)
+```
+
+Préparation d'une palette de couleurs pour distinguer les années avec les *packages* `{RColorBrewer}` (couleurs pleines) et `{GISTools}` (pour les transparences). 
+
+```{r}
+nb_annees <- nrow(data_sta) - 2
+
+# Vecteurs des couleurs de ligne et de remplissage
+couleurs_traits <- RColorBrewer::brewer.pal(n = nb_annees, name = "RdYlBu")
+couleurs_remplissage <- couleurs_traits %>%
+  GISTools::add.alpha(alpha = 0.1)
+```
+
+```{r}
+data_sta <- rbind(bornes_sup, bornes_inf , data_sta)
+```
+
+
+```{r, fig.height = 8, fig.width = 6.5}
+
+radarchart(data_sta %>% select(-annee),
+           axistype = 2, 
+           #custom polygon
+           pcol = couleurs_traits, pfcol = couleurs_remplissage, plwd = 4, plty = 1,
+           #custom the grid
+           cglcol = "grey", cglty = 1, axislabcol = "grey80",
+           #custom labels
+           vlcex = 0.8,
+           title = mon_titre)
+
+legend(x = 0.7, y = 1.55,
+       legend = rownames(data_sta[-c(1,2),]),
+       bty = "n", pch = 20 ,
+       col = couleurs_traits,
+       text.col = "grey80", cex = 1.2, pt.cex = 3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
