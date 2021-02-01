@@ -440,7 +440,7 @@ data_sta <- rbind(bornes_sup, bornes_inf , data_sta)
 
 ```{r, fig.height = 8, fig.width = 6.5}
 
-radarchart(data_sta %>% select(-annee),
+radarchart(data_sta,
            axistype = 2, 
            #custom polygon
            pcol = couleurs_traits, pfcol = couleurs_remplissage, plwd = 4, plty = 1,
@@ -458,6 +458,10 @@ legend(x = 0.7, y = 1.55,
 ```
 
 
+```{r}
+data_sta <- ipr_mef_radar (metriques_df = ipr_metriques,
+                station_id = 10708)
+```
 
 
 
