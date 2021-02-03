@@ -220,7 +220,7 @@ mon_graphique <- mon_graphique +
   theme(strip.text.x = element_text(size = 7))
 ```
 
->NB la synthaxe du package `ggplot` utilise pour enchaîner les manipulations l'opérateur `+` au lieu du ` %>%` ailleurs ...
+>NB la synthaxe du package `ggplot2` utilise pour enchaîner les manipulations l'opérateur `+` au lieu du ` %>%` ailleurs ...
 
 Chemin de sauvegarde et nommage du fichier (concaténation avec la fonction `paste0()`) :
 

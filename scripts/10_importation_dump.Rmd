@@ -112,6 +112,9 @@ Si ça a bien fonctionné on trouve dans le répertoire de destination (par déf
 
 ![](../assets/fichiers_rdata.png)
 
+>En cas de message d'erreur comprenant `Error in gzfile(file, "wb") : ...'`, la cause la plus probable est un mauvais chemin vers le fichier `dump`, ce qui ne devrait pas arriver avec l'organisation suggérée du projet.
+
+
 Ensuite, on charge le fichier `.RData` souhaité.
 
 ```{r, eval = FALSE}
