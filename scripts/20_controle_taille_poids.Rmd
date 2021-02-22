@@ -1,5 +1,5 @@
 ---
-title: "ASPE - Traitements sur les IPR"
+title: "ASPE - Controles qualité taille-poids"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 output: html_document
@@ -11,11 +11,11 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # Objectif
 
-Ce document donne un exemple de chaîne de traitement des données Aspe pour présenter des IPR sur une région et effectuer des vérifications au moyen de l'ancienne macro Excel de calcul de cet indice.
+Ce document donne un exemple de chaîne de traitement des données Aspe pour effectuer des vérifications des mesures de taille est de poids des individus et des lots.
 
 Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`.
 
-Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `ipr_`.
+Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `qtp_`.
 
 # Chargement des packages et des données
 
@@ -30,75 +30,127 @@ load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/toutes_tables_aspe.RData")
 ```
 
 # Grandes lignes de l'analyse
 
-## Structure de la base
+## Sources potentielles d'erreurs
 
-La base Aspe comprend plus d'une centaine de tables dont la plupart contiennent des référentiels associant des codes à des modalités. Par exemple la table `ref_protocole` associe le code `pro_id` à la modalité *"Pêche partielle par points (grand milieu)"*. Ces tables sont dites "périphériques".
+Lors des opérations de terrain, un atelier de biométrie installé sur la berge permet d'effectuer des mesures de longueur des poissons et de les peser. Ces données peuvent être soit collectées individu par individu, soit par lots de poissons dans les cas où les mesures individuelles seraient trop chronophages ou peu informatives.
 
-Chaque table comprend une clé primaire (suffixe "_id"), identifiant unique de chacune de ses lignes.
+Des erreurs dans les valeurs saisies de longueur et de masse peivent avoir comme origine :
 
-Les tables qui constituent la colonne vertébrale de la base sont au nombre de six :
+- Une erreur de lecture à la mesure elle-même.
+- Une erreur quand la valeur mesurée est dictée à la personne qui remplit les fiches papier.
+- Une erreur à l'écriture.
+- Une erreur lors de la saisie depuis les fiches papier vers la base de données Aspe.
 
-- station
-- point_prelevement
-- operation
-- prelevement_elementaire
-- lot_poissons
-- mesure_individuelle
+Outre ces erreurs, les instruments de mesure peuvent être peu précis sur le terrain, par exemple pour peser des faibles masses en plein vent.
 
-Ces tables sont liées de manières hiérarchique. Ainsi, chaque mesure individuelle se rapporte à un lot, qui se rapporte à un prélèvement élémentaire, qui se rapporte à une opération ... jusqu'à la station.
-
-Pour savoir sur quelle station a été capturé ce goujon de 87mm, il faut donc remonter toute la chaîne.
+>Il s'agit ici de proposer des routines pour identifier les triplets espèce - longueur - masse qui sont peu probables soit d'après des relations statistiques, soit d'après les données publiées.
 
 ## Principe
 
-Pour simplifier les différents traitements et éviter d'avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n'incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé "passerelle" en ce qu'il fait la jonction entre les diféfrentes composantes de la base.
+Les tests vont consister à s'assurer que pour chaque individu :
+
+- Les valeurs de longueur et de masse sont dans une gamme connue pour l'espèce.
+- Il y a cohérence entre ces deux valeurs.
+
+## Relation taille - poids
+
+Deux types de relations taille-poids vont être utilisées ici :
+
+- Les relations publiées, collectées depuis la base de données inctyologique en ligne [fishbase](www.fishbase.se).
+- Le relations calculées depuis les données de la base Aspe.
+
+# Calcul des relations taille - poids
+
+Dans cet exemple, toutes les mesures individuelles de la base sont prises en compte. Pour produire des relations taille - poids spécifique à une région, il suffit de procéder de même après avoir filtré la table `mesure_individuelle`. 
+
+```{r}
+tp_data <- mesure_individuelle %>% 
+  filter(!is.na(mei_taille), !is.na(mei_poids), mei_mesure_reelle == "t") %>% 
+    left_join(y = lot_poissons %>% select(mei_lop_id = lop_id, esp_id = lop_esp_id)) %>% 
+    left_join(y = ref_espece %>% select(esp_id, esp_code_alternatif))
+```
+
+Combien de couples de mesures par espèce ?
+
+```{r}
+tp_data %>% 
+  group_by(esp_code_alternatif) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  as.data.frame() %>% 
+  DT::datatable() %>% 
+  DT::formatCurrency('n', currency = "", interval = 3, mark = " ", digits = 0)
+```
+
+Distribution des longueurs.
+
+```{r}
+qtp_histo (df = tp_data,
+           code_espece = "ROT",
+           variable = "mei_taille",
+           x_max = 500)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ```{r}
 passerelle <- mef_creer_passerelle()
-names(passerelle)
-```
 
-Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).
+gdata::keep(mesure_individuelle, passerelle, station, sure = TRUE)
+```
 
 
 ```{r}
-depts_bzh_pdl <- c(22, 29, 35, 56, 44, 53, 72, 49, 85)
+depts_bzh <- c(22, 29, 35, 56)
 
-id_stations_bzh_pdl <- station %>%
+id_stations_bzh <- station %>%
   mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>%
-  filter(sta_dept %in% depts_bzh_pdl) %>%
+  filter(sta_dept %in% depts_bzh) %>%
   pull(sta_id)
 ```
 
 >Le package {aspe} permet aussi effectuer une [sélection géographique](https://rpubs.com/kamoke/716322), par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
 
-On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP.
-
-```{r}
-reseaux_select <- c('RCS – Réseau de Contrôle de Surveillance',
-                    'RHP – Réseau Hydrobiologique Piscicole',
-                    'RRP – Réseau de Référence Pérenne')
-
-id_reseaux <- ref_objectif %>%
-  filter(obj_libelle %in% reseaux_select) %>%
-  pull(obj_id)
-```
-
-
-Maintenant qu'on a les identifiants des réseaux et des stations qui nous intéressent, filtrons la passerelle à partir des vecteurs `id_reseaux` et `id_stations_bzh_pdl`.
+Maintenant qu'on a les identifiants des stations qui nous intéressent, filtrons la passerelle à partir du vecteur  `id_stations_bzh`.
 
 ```{r}
 passerelle <- passerelle %>%
-  filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
-  filter(obj_id %in% id_reseaux) %>% # filtrage sur réseaux
-  select(-obj_id) %>% # suppression de cette colonne désormais inutile
-  distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
+  filter(sta_id %in% id_stations_bzh) # filtrage sur stations
 ```
 
 # Bilan des IPR par station

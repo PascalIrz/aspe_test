@@ -123,14 +123,21 @@ load(file = 'raw_data/lignes_autres_tables.RData')
 
 Ce qui fait apparaître dans l'environnement un objet `lignes_autres_tables`.
 
-Puis, si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur.
+Si l'on connaît les noms des tables dont on aura besoin, on les charge directement au moyen de l'argument `tables_a_extraire` en indiquant leur nom sous forme de vecteur.
 
 ```{r, eval = FALSE}
 imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables,
                                tables_a_extraire = c("station", "facies"))
 ```
 
-Sinon, on importe tout (environ 5') puis on fera le tri.
+Si on ne les connaît pas, on peut les afficher ...
+
+```{r, eval = FALSE}
+imp_extraire_noms_tables(lignes_dump = lignes_autres_tables)
+```
+
+
+... ou bien tout importer (environ 5') pour effectuer le tri ultérieurement.
 
 ```{r, eval = FALSE}
 imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)

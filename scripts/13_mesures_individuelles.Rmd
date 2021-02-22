@@ -96,7 +96,7 @@ data_ind <- data %>%
                       select(tlo_id, tlo_libelle)) %>% 
     mutate(ope_date = lubridate::ymd_hms(ope_date),
            ope_date = lubridate::floor_date(ope_date, unit = "day")) %>% 
-    select(-obj_id, -mei_id, -tlo_id)
+    select(-obj_id, -mei_id, -tlo_id) # suppression colonnes inutiles
 
 ```
 Blabla exliquer la signification des champs.
