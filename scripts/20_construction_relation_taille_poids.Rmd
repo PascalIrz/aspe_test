@@ -25,7 +25,7 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/toutes_tables_aspe.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
@@ -93,8 +93,6 @@ tp_data <- mesure_individuelle %>%
 
 Combien de couples de mesures par espèce ?
 
-<div align="center">
-
 ```{r}
 obs_par_esp <- tp_data %>% 
   group_by(esp_code_alternatif) %>% 
@@ -107,9 +105,9 @@ obs_par_esp %>%
   DT::formatCurrency('n', currency = "", interval = 3, mark = " ", digits = 0)
 ```
 
-</div>
-
 ## Distribution des longueurs
+
+La fonction `qtp_histo()` permet de produire les graphiques de distribution des variables de taille et de poids.
 
 Choix d'une espèce.
 
@@ -117,6 +115,7 @@ Choix d'une espèce.
 mon_espece <- "VAN"
 ```
 
+Production du graphique.
 
 ```{r}
 qtp_histo (df = tp_data,
@@ -125,32 +124,18 @@ qtp_histo (df = tp_data,
            x_max = 500)
 ```
 
-## Valeurs extrêmes
+## Détermination des seuils
+
+Quelles sont les seuils de longueur probables pour la `r mon_espece`, avec une probabilité de 1% ?
+
+Jeu de donnée de mon espèce :
 
 ```{r}
 data_esp <- tp_data %>% 
-  filter(esp_code_alternatif == mon_espece, mei_taille > 0, mei_poids > 0)
+  filter(esp_code_alternatif == mon_espece)
 ```
 
-Longueurs des 100 plus petits individus.
-
-```{r}
-data_esp %>% 
-  pull(mei_taille) %>% 
-  sort() %>% 
-  .[1:100]
-```
-
-Les plus longs.
-
-```{r}
-data_esp %>% 
-  pull(mei_taille) %>% 
-  sort(decreasing = TRUE) %>% 
-  .[1:100]
-```
-
-Quelles sont les seuils de longueur probables pour la `r mon_espece`, avec une probabilité de 1% ?
+Application de la fonction `qtp_seuils()`. Elle retourne un objet contenant deux éléments qui sont les bornes supérieure et inférieure.
 
 ```{r}
 seuils <- qtp_seuils (df = data_esp,
@@ -161,9 +146,21 @@ seuils <- qtp_seuils (df = data_esp,
 seuils
 ```
 
-Pour les `r mon_espece`, au seuil de 1%, on considérera les individus inférieurs à `r seuils[1]`mm ou supérieurs à `r seuils[2]`mm avec une attention particulière.
+Interprétation : Pour les `r mon_espece`, avec une densité de probabilité de 1%, on considérera les individus inférieurs à `r seuils[1]`mm ou supérieurs à `r seuils[2]`mm avec une attention particulière, voire ils seront considérés comme les *outliers* et éliminés.
 
-Bien sûr ces valeurs dépendent du seuil.
+Pour accéder au seuil mini ou au maxi, on les sélectionne avec les chochets `[]` autour du numéro souhaité. Le première des valeurs est le mini.
+
+```{r}
+seuils[1]
+```
+
+La seconde est la maxi.
+
+```{r}
+seuils[2]
+```
+
+Bien sûr ces valeurs dépendent de la densité de probabilité.
 
 ```{r, fig.align='center', echo = FALSE}
 probas <- c(0.1, 0.05, 0.01, 0.001)
@@ -176,22 +173,32 @@ map(.x = probas,
   reduce(rbind) %>% 
   as.data.frame() %>% 
   purrr::set_names(c("mini", "maxi")) %>% 
-  mutate(seuil = probas) %>% 
-  select(seuil, everything()) %>% 
-  knitr::kable(row.names = F, format = "html", table.attr = "style='width:30%;'")
+  mutate(densite_proba = probas) %>% 
+  select(densite_proba, everything()) %>% 
+  knitr::kable(row.names = F, format = "html", table.attr = "style='width:40%;'")
 ```
 
 Pour plus de détail sur la méthode sous-jacente, taper dans la console `get("compute_group", ggplot2::StatDensity)`.
 
 # Relation taille - poids
 
-La première partie de cette section va détailler pas à pas la procédure de détermination de la relation taille - poids pour une espèce. La seconde va montrer comment aller droit au but pour obtenir le résultat si l'on se satisfait des options par défaut.  
+La première partie de cette section va détailler pas à pas la procédure de détermination de la relation taille - poids pour une espèce. La seconde va montrer comment aller droit au but pour obtenir le résultat pour plusieurs espèces si l'on se satisfait des options par défaut et qu'aucune difficulté ne vient perturber les calculs.
+
+>Les longueurs dans la base Aspe sont en *mm*, mais les courbes issues de la littérature et synthétisées dans [Fishbase](www.fishbase.se) sont pour des longueurs en *cm.* Afin que les deux soient comparables, nous choisissons ici de convertir les longueurs en *cm*.
+
+```{r}
+data_esp <- data_esp %>% 
+  mutate(mei_taille = mei_taille / 10)
+```
+
 
 ## Pour une espèce
 
 ### Sélection initiale des observations
 
 Pour éviter que les relations taille - poids soient dégradées par des valeurs très peu probables, on les construit sur une gamme de données écartant les valeurs extrêmes.
+
+Détermination des seuils.
 
 ```{r}
 seuils_taille <- qtp_seuils (df = data_esp,
@@ -204,6 +211,7 @@ seuils_poids <- qtp_seuils (df = data_esp,
 
 ```
 
+Filtrage en utilisant les seuils.
 
 ```{r}
 tp_esp <- data_esp %>%
@@ -214,27 +222,44 @@ tp_esp <- data_esp %>%
   filter(mei_poids >= 5) # en-dessous de 5g la balance est souvent imprécise
 ```
 
-## Modèle préliminaire
+### Modèle préliminaire
+
+On construit un premier modèle en sachant qu'il est potentiellement fortement influencé par quelques observations. Le but est d'identifier de telles observations pour si nécessaire les supprimer avant de construire de nouveau un modèle.
+
+La fonction `lm()` du package {stats} permet de réaliser une régression du log du poids en fonction du log de la longueur.
 
 ```{r}
-mod <- lm(log(mei_poids) ~ log(mei_taille), data = tp_esp)
+mod <- lm(log(mei_poids) ~ log(mei_taille),
+          data = tp_esp)
+```
 
+Le modèle `mod` est un objet de classe "lm" (*linear model*). Pour en exploter le contenu, `names(mod)`. Pour en obtenir le résumé :
+
+```{r}
 summary(mod)
+```
 
+Pour obtenir les graphiques de diagnostic :
+
+```{r}
 plot(mod)
 ```
 
+Malgré un $r^2 ajusté$ de 0.93, l'ajustement est médiocre. Quelques *outliers* contribuent fortement au modèle. Ils ont un très fort 'bras de levier' (*leverage*) comme le montre le graphique du bas.
+
 ### Elimination des observations trop influentes
 
-Pour évaluer l'influence de chacun des individus sur l'équation de la régression, on peut utiliser la [distance de Cook](https://fr.wikipedia.org/wiki/Distance_de_Cook). Une cote mal taillée consiste à considérer que si la distance de Cook d'une observation excède 4/N, avec N le nombre d'observations, il est préférable d'éliminer cette observation. 
+Pour évaluer l'influence de chacun des individus sur l'équation de la régression, on peut utiliser la [distance de Cook](https://fr.wikipedia.org/wiki/Distance_de_Cook). Une cote mal taillée consiste à considérer que si la distance de Cook d'une observation excède 4/N, avec N le nombre d'observations, il est préférable d'éliminer cette observation.
+
+Ces distances sont obtenues en appliquant au modèle la fonction `cooks.distance()` du package {stats}.
 
 ```{r}
 dist_cook <- cooks.distance(mod)
 seuil_cook <- 4 / nrow(tp_esp)
 
 tp_esp <- tp_esp %>% 
-  cbind(dist_cook) %>% 
-  filter(dist_cook < seuil_cook)
+  cbind(dist_cook) %>% # ajout de la colonne avec les distances
+  filter(dist_cook < seuil_cook) # suppression des observations avec distance > 4/N
 ```
 
 ### Modèle final
@@ -242,7 +267,9 @@ tp_esp <- tp_esp %>%
 On peut maintenant recommencer et déterminer la relation taille - poids sur les observations retenues.
 
 ```{r}
-mod <- lm(log(mei_poids) ~ log(mei_taille), data = tp_esp)
+mod <- lm(log(mei_poids) ~ log(mei_taille),
+          data = tp_esp)
+
 summary(mod)
 
 plot(mod)
@@ -257,11 +284,20 @@ Au final, l'équation retenue est :
 
 log(poids) = log(`r alpha`) + `r beta` x log(longueur), soit, en conservant pas mal de décimales :
 
-Poids = `r exp(alpha) %>% format(scientific = FALSE)` x Longueur^`r beta`^
+Poids(g) = `r exp(alpha) %>% format(scientific = FALSE)` x Longueur(cm)^`r beta`^
 
 ## Pour un ensemble d'espèces
 
+Il s'agit ici d'enchaîner "automatiquement" les étapes détaillées ci-dessus au moyen de la fonction `qtp_calcul()`.
+
 Seules les espèces pour lesquelles une régression taille-poids a du sens doivent être conservées, faute de quoi il y a des risques d'erreurs.
+
+Conversion des longueurs en *cm*.
+
+```{r}
+tp_data <- tp_data %>% 
+  mutate(mei_taille = mei_taille / 10)
+```
 
 ```{r}
 resume <- qtp_resume_donnees (df = tp_data,
@@ -270,6 +306,7 @@ resume %>%
   mutate_if(is.numeric, round, 1) %>% 
   DT::datatable()
 ```
+
 Les espèces pour lesquelles seuls quelques individus passent le seuil du poids minimum ne peuvent faire l'objet d'une analyse fiable. Sélectionons par exemple les espèces avec au minimum 20 individus dépassant le seuil.
 
 ```{r}
@@ -279,22 +316,74 @@ mes_especes <- resume %>%
   as.character()
 ```
 
-Application de la fonction `qtp_calcul` aux espèces sélectionnées.
+Application de la fonction `qtp_calcul()` aux espèces sélectionnées.
 
 ```{r}
 tp <- qtp_calcul(df = tp_data,
-                 especes = mes_especes) %>% 
-  arrange(n_ind)
+                 especes = mes_especes)
+sp <- tp %>% 
+  pull(code_espece)
 
+tp <- tp %>% 
+  select(-code_espece) %>% 
+  mutate_all(as.numeric)
+
+tp <- cbind(sp, tp) %>% 
+  rename(code_espece = sp) %>% 
+  arrange(-n_ind)
+```
+
+Résultat avec un peu de mise en forme :
+
+```{r}
 tp %>% 
-  DT::datatable(rownames = FALSE) %>% 
-    DT::formatRound(columns = c('alpha', 'beta', 'r2'), digits = 3)
+  DT::datatable(rownames = FALSE,
+                options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))
+            )) %>% 
+  DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
+  DT::formatRound(columns = c('r2'), digits = 2) %>% 
+  DT::formatRound(columns = c('taille_mini', 'taille_maxi', 'poids_mini'), digits = 1)
 ```
 
 
+# Interprétation
 
+On peut comparer avec des données de Fishbase. Il faut d'abord charger le package {rfishbase} puis utiliser sa fonction `length_weight()`.
 
+Exemple avec la tanche, *Tinca tinca*.
 
+```{r, eval = FALSE}
+install.packages("rfishbase")
+```
+
+Chargement des données depuis Fishbase.
+
+```{r}
+fb_data <- rfishbase::length_weight("Tinca tinca") %>% 
+  select(a, b, r2 = CoeffDetermination, n_ind = Number, taille_mini = LengthMin,
+         taille_maxi = LengthMax, Lieu = Locality)
+```
+
+Création d'un objet `Lieu` pour localiser notre étude.
+
+```{r}
+Lieu <- data.frame(Lieu = "France - ASPE") 
+```
+
+Assemblage des tableaux. Il s'agit d'empiler nos résultats pour une espèce avec ceux de Fishbase. La présente étude figure sur la première ligne.
+
+```{r}
+tp %>% 
+  filter(code_espece == "TAN") %>% # seulement la tanche
+  cbind(Lieu) %>% # ajout du lieu comme une colonne
+  select(names(fb_data)) %>% # mettre les colonnes dans le même ordre pour les empiler
+  rbind(fb_data) %>% # empilement
+    DT::datatable(rownames = FALSE) %>% 
+    DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
+    DT::formatRound(columns = c('r2'), digits = 2) %>% 
+    DT::formatRound(columns = c('taille_mini', 'taille_maxi'), digits = 1)
+  
+```
 
 
 
