@@ -2,7 +2,9 @@
 title: "ASPE - Construire des relations taille-poids"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
-output: html_document
+output:
+  html_document:
+    code_folding: show
 ---
 
 ```{r setup, include = FALSE}
@@ -99,7 +101,10 @@ obs_par_esp <- tp_data %>%
   tally() %>% 
   arrange(-n) %>% 
   as.data.frame()
+```
 
+
+```{r, class.source = 'fold-hide'}
 obs_par_esp %>% 
   DT::datatable(rownames = FALSE, width = 300) %>% 
   DT::formatCurrency('n', currency = "", interval = 3, mark = " ", digits = 0)
@@ -233,7 +238,7 @@ mod <- lm(log(mei_poids) ~ log(mei_taille),
           data = tp_esp)
 ```
 
-Le modèle `mod` est un objet de classe "lm" (*linear model*). Pour en exploter le contenu, `names(mod)`. Pour en obtenir le résumé :
+Le modèle `mod` est un objet de classe "lm" (*linear model*). Pour en explorer le contenu, `names(mod)`. Pour en obtenir le résumé :
 
 ```{r}
 summary(mod)
@@ -275,10 +280,17 @@ summary(mod)
 plot(mod)
 ```
 
-```{r}
+```{r, echo = FALSE}
 alpha <- mod$coefficients["(Intercept)"]
 beta <- mod$coefficients["log(mei_taille)"]
 ```
+
+Les coefficients du modèle sont :
+
+```{r}
+mod$coefficients
+```
+
 
 Au final, l'équation retenue est :
 
@@ -342,7 +354,9 @@ tp %>%
             )) %>% 
   DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
   DT::formatRound(columns = c('r2'), digits = 2) %>% 
-  DT::formatRound(columns = c('taille_mini', 'taille_maxi', 'poids_mini'), digits = 1)
+  DT::formatRound(columns = c('taille_mini', 'taille_maxi', 'poids_mini'), digits = 1) %>% 
+  DT::formatCurrency(columns = c('n_ind', 'poids_maxi'), currency = "",
+                     interval = 3, mark = " ", digits = 0)
 ```
 
 
@@ -361,23 +375,29 @@ Chargement des données depuis Fishbase.
 ```{r}
 fb_data <- rfishbase::length_weight("Tinca tinca") %>% 
   select(a, b, r2 = CoeffDetermination, n_ind = Number, taille_mini = LengthMin,
-         taille_maxi = LengthMax, Lieu = Locality)
+         taille_maxi = LengthMax, lieu = Locality)
 ```
 
-Création d'un objet `Lieu` pour localiser notre étude.
+Création d'un objet `lieu` pour localiser notre étude.
 
 ```{r}
-Lieu <- data.frame(Lieu = "France - ASPE") 
+lieu <- data.frame(lieu = "France - ASPE") 
 ```
 
 Assemblage des tableaux. Il s'agit d'empiler nos résultats pour une espèce avec ceux de Fishbase. La présente étude figure sur la première ligne.
 
 ```{r}
-tp %>% 
+synthese <- tp %>% 
   filter(code_espece == "TAN") %>% # seulement la tanche
-  cbind(Lieu) %>% # ajout du lieu comme une colonne
+  cbind(lieu) %>% # ajout du lieu comme une colonne
   select(names(fb_data)) %>% # mettre les colonnes dans le même ordre pour les empiler
   rbind(fb_data) %>% # empilement
+  mutate(lieu = str_replace(lieu, " \\s*\\([^\\)]+\\)", "")) # supprimer texte entre parenthèses
+```
+
+
+```{r, class.source = 'fold-hide'}
+synthese %>% 
     DT::datatable(rownames = FALSE) %>% 
     DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
     DT::formatRound(columns = c('r2'), digits = 2) %>% 
@@ -385,6 +405,15 @@ tp %>%
   
 ```
 
+```{r}
+g <- ggplot(data = synthese, aes(x = b, y = log(a, base = 10), text = lieu)) +
+  geom_point() +
+  geom_point(data = synthese[1,], color = "red", size = 2) +
+  geom_text(data = synthese[1,], color = "red", label = "Aspe", nudge_y = 0.07) +
+  labs(y = "log10(a)")
+
+plotly::ggplotly(g, tooltip="text")
+```
 
 
 

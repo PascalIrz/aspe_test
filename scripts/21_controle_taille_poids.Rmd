@@ -293,6 +293,9 @@ tp %>%
 
 
 
+```{r}
+rfishbase::length_weight("Oreochromis niloticus")
+```
 
 
 
