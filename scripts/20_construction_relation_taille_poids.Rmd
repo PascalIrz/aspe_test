@@ -426,11 +426,11 @@ Comme les intitulés des lieux d'étude sont assez moches (parfois les années, 
 
 ```{r}
 synthese <- synthese%>% 
-  mutate(lieu = str_replace_all(lieu, " \\s*\\([^\\)]+\\)", ""),# supprimer texte entre parenthèses
-         lieu = str_replace_all(lieu, "[:digit:]", ""), # supprimer les chiffres (coords, années)
-         lieu = str_replace_all(lieu, "[\\-\\/]", ""), # supprimer certains caractères spéciaux
+  mutate(lieu = str_replace_all(lieu, " \\s*\\([^\\)]+\\)", ""),# suppr. texte entre parenthèses
+         lieu = str_replace_all(lieu, "[:digit:]", ""), # suppr. les chiffres (coords, années)
+         lieu = str_replace_all(lieu, "[\\-\\/]", ""), # suppr. certains caractères spéciaux
          lieu = str_squish(lieu), # supprimer les espaces qui trainent ou les fusionner
-         lieu = str_replace(lieu, ",$", "")) # si le dernier caractère est une virgule, la supprimer
+         lieu = str_replace(lieu, ",$", "")) # si le dernier caractère est une virgule, la suppr.
 ```
 
 Tableau mise en forme :
