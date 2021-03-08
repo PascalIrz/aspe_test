@@ -69,21 +69,23 @@ load(file = "../processed_data/toutes_tables_aspe.RData")
 
 # Gammes de taille et de poids
 
-La première étape, pour éviter que des *outliers* ne perturbent les analyses, est de définir pour chaque jeu de données sur une espèce des gammes de longueurs et de poids "plausibles" en dehors desquelles les observations seront excles pour effectuer la régression.
+La première étape, pour éviter que des *outliers* ne perturbent les analyses, est de définir pour chaque jeu de données sur une espèce des gammes de longueurs et de poids "plausibles" en dehors desquelles les observations seront excles pour effectuer la régression. Dans la base, les poids (masses) sont en grammes et les longueurs en millimètres.
 
 ## Le jeu de données
 
-Dans cet exemple, toutes les mesures individuelles de la base sont prises en compte. Pour produire des relations taille - poids spécifique à une région, il suffit de procéder de même après avoir filtré la table `mesure_individuelle`.
+Dans cet exemple, toutes les mesures individuelles de la base sont prises en compte.
+
+>NB : Pour produire des relations taille - poids spécifiques à une région, en théorie il suffit de procéder de même après avoir filtré la table `mesure_individuelle`. En pratique, certaines espèces rares (peu d'individus) ou de très petite taille (erreurs relatives importantes de mesure du poids) peuvent bloquer la procédure.
 
 Pour constituer le jeu de données, les étapes sont :
 
-- La table `mesure_individuelle` est filtrée pour supprimer les tailles et poids positifs et ne conserver que les mesures réellement effectuées.
-- Jointure sur la table `lot_poissons` pour obtenir l'identifiant de l'espèce.
+- La table `mesure_individuelle` est filtrée pour supprimer les observations avec taille ou poids manquant ou nul et ne conserver que les mesures réellement effectuées.
+- Jointure sur la table `lot_poissons` pour obtenir l'identifiant Aspe de l'espèce.
 - Jointure sur la table `ref_espece` pour obtenir le code à trois lettres de l'espèce.
 
 Les jointures sont effectuées sur une sélection des colonnes des tables (fonction `select()`) afin d'éviter de surcharger le tableau de données avec des colonnes inutiles.
 
-Il est possible de ne sélectionner que les mesures de longueur à la fourche (`filter(mei_tlo_id == 1)`) ou que les longueurs totales (`filter(mei_tlo_id == 2)`). Dans cet exemple toutes les mesures sont conservées.
+Il est possible de sélectionner uniquement les mesures de longueur à la fourche (`filter(mei_tlo_id == 1)`) ou bien les longueurs totales (`filter(mei_tlo_id == 2)`). Dans cet exemple toutes les mesures sont conservées.
 
 ```{r}
 tp_data <- mesure_individuelle %>% 
@@ -99,12 +101,12 @@ tp_data <- mesure_individuelle %>%
 
 Combien de couples de mesures par espèce ?
 
-```{r}
+```{r, class.source = 'fold-hide'}
 obs_par_esp <- tp_data %>% 
   group_by(esp_code_alternatif) %>% 
-  tally() %>% 
-  arrange(-n) %>% 
-  as.data.frame()
+    tally() %>% 
+    arrange(-n) %>% 
+    as.data.frame()
 ```
 
 
@@ -127,10 +129,10 @@ mon_espece <- "VAN"
 Production du graphique.
 
 ```{r}
-qtp_histo (df = tp_data,
-           code_espece = mon_espece,
-           variable = "mei_taille",
-           x_max = 500)
+qtp_histo(df = tp_data,
+          code_espece = mon_espece,
+          variable = "mei_taille",
+          x_max = 500)
 ```
 
 ## Détermination des seuils
@@ -147,10 +149,10 @@ data_esp <- tp_data %>%
 Application de la fonction `qtp_seuils()`. Elle retourne un objet contenant deux éléments qui sont les bornes supérieure et inférieure.
 
 ```{r}
-seuils <- qtp_seuils (df = data_esp,
-                      code_espece = mon_espece,
-                      variable = "mei_taille",
-                      seuil_densite = 0.01)
+seuils <- qtp_seuils(df = data_esp,
+                     code_espece = mon_espece,
+                     variable = "mei_taille",
+                     seuil_densite = 0.01)
 
 seuils
 ```
@@ -210,13 +212,13 @@ Pour éviter que les relations taille - poids soient dégradées par des valeurs
 Détermination des seuils.
 
 ```{r}
-seuils_taille <- qtp_seuils (df = data_esp,
-                             code_espece = mon_espece,
-                             variable = "mei_taille")
-
-seuils_poids <- qtp_seuils (df = data_esp,
+seuils_taille <- qtp_seuils(df = data_esp,
                             code_espece = mon_espece,
-                            variable = "mei_poids")
+                            variable = "mei_taille")
+
+seuils_poids <- qtp_seuils(df = data_esp,
+                           code_espece = mon_espece,
+                           variable = "mei_poids")
 
 ```
 
@@ -260,7 +262,7 @@ Malgré un $r^2 ajusté$ de 0.93, l'ajustement est médiocre. Quelques *outliers
 
 Pour évaluer l'influence de chacun des individus sur l'équation de la régression, on peut utiliser la [distance de Cook](https://fr.wikipedia.org/wiki/Distance_de_Cook). Une cote mal taillée consiste à considérer que si la distance de Cook d'une observation excède 4/N, avec N le nombre d'observations, il est préférable d'éliminer cette observation.
 
-Ces distances sont obtenues en appliquant au modèle la fonction `cooks.distance()` du package {stats}.
+Ces distances sont obtenues en appliquant au modèle la fonction `cooks.distance()` du package {stats}. 
 
 ```{r}
 dist_cook <- cooks.distance(mod)
@@ -302,6 +304,26 @@ log(poids) = log(`r alpha`) + `r beta` x log(longueur), soit, en conservant pas 
 
 Poids(g) = `r exp(alpha) %>% format(scientific = FALSE)` x Longueur(cm)^`r beta`^
 
+Graphiquement, on peut représenter la relation avec des axes arithmétiques ou bien log-transformés. Les courbes en rouge indiquent les valeurs prédites par le modèle.
+
+```{r, fig.width=9, class.source = 'fold-hide'}
+tp_esp <- tp_esp %>% 
+  cbind(predicted = exp(mod$fitted.values)) %>% #¥ ajout des valeurs prédites
+  arrange(mei_taille) # mise en ordre de taille (pour le geom_line())
+
+gg1 <- ggplot(data = tp_esp, aes(x = mei_taille, y = mei_poids)) +
+  geom_point(size = 0.2) +
+  geom_line(aes(y = predicted), col = "red", size = 1) +
+  labs(x = "Longueur (mm)", y = "Masse (g)", title = mon_espece)
+
+gg2 <- gg1 +
+  scale_x_log10() +
+  scale_y_log10()
+
+ggpubr::ggarrange(gg1, gg2, nrow = 1)
+```
+
+
 ## Pour un ensemble d'espèces
 
 Il s'agit ici d'enchaîner "automatiquement" les étapes détaillées ci-dessus au moyen de la fonction `qtp_calcul()`.
@@ -316,8 +338,8 @@ tp_data <- tp_data %>%
 ```
 
 ```{r}
-resume <- qtp_resume_donnees (df = tp_data,
-                              seuil_poids_absolu = 5)
+resume <- qtp_resume_donnees(df = tp_data,
+                             seuil_poids_absolu = 5)
 ```
 
 
@@ -334,7 +356,11 @@ mes_especes <- resume %>%
   filter(n_sup_seuil > 19) %>% 
   pull(esp_code_alternatif) %>% 
   as.character()
+
+mes_especes
 ```
+
+Au total, `r length(mes_especes)` espèces comptent suffisamment d'individus.
 
 Application de la fonction `qtp_calcul()` aux espèces sélectionnées.
 
@@ -358,15 +384,27 @@ Résultat avec un peu de mise en forme :
 ```{r, class.source = 'fold-hide'}
 tp %>% 
   DT::datatable(rownames = FALSE,
-                options = list(columnDefs = list(list(className = 'dt-center', targets = 0:3))
-            )) %>% 
+                options = list(columnDefs = list(list(className = 'dt-center',
+                                                      targets = 0:3)))) %>% 
   DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
-  DT::formatRound(columns = c('r2'), digits = 2) %>% 
+  DT::formatRound(columns = c('r2_ajuste'), digits = 2) %>% 
   DT::formatRound(columns = c('taille_mini', 'taille_maxi', 'poids_mini'), digits = 1) %>% 
   DT::formatCurrency(columns = c('n_ind', 'poids_maxi'), currency = "",
                      interval = 3, mark = " ", digits = 0)
 ```
+### Exportation / sauvegarde
 
+Pour une exploitation avec R :
+
+```{r, eval = FALSE}
+save(tp, file = "processed_data/tp.RData")
+```
+
+Pour une exploitation avec un tableur :
+
+```{r, eval = FALSE}
+write.csv2(tp, file = "processed_data/tp.csv", row.names = FALSE)
+```
 
 # Mise en perspective
 
@@ -376,14 +414,11 @@ tp %>%
 
 </div>
 
-Le package {rfishbase} ([Boettiger, Lang & Wainwright 2012](https://fishlab.ucdavis.edu/wp-content/uploads/sites/397/2011/01/BoettigerFishbase2012.pdf)) est une interface pour utiliser avec R 
-) les données compilées dans Fishbase sur plusieurs milliers d'espèces.
+Le package {rfishbase} ([Boettiger, Lang & Wainwright 2012](https://fishlab.ucdavis.edu/wp-content/uploads/sites/397/2011/01/BoettigerFishbase2012.pdf)) est une interface pour utiliser avec R les données compilées dans Fishbase sur plusieurs milliers d'espèces.
 
 Il a été  et a largement enrichi depuis 2012 pour suivre les évolutions de Fishbase et est accompagné d'un [tutoriel](https://docs.ropensci.org/rfishbase). 
 
 On peut donc comparer nos résultats avec des données de [Fishbase](www.fishbase.se). 
-
-
 
 ## Téléchargement des données Fishbase
 
@@ -402,7 +437,7 @@ Exemple avec la tanche, *Tinca tinca* (la fonction permettrait de charger les re
 ```{r}
 nom_latin <- "Tinca tinca" # choix de l'espèce
 fb_data <- rfishbase::length_weight(nom_latin) %>% 
-  select(a, b, r2 = CoeffDetermination, n_ind = Number, taille_mini = LengthMin,
+  select(a, b, r2_ajuste = CoeffDetermination, n_ind = Number, taille_mini = LengthMin,
          taille_maxi = LengthMax, lieu = Locality)
 ```
 
@@ -425,7 +460,7 @@ synthese <- tp %>%
 Comme les intitulés des lieux d'étude sont assez moches (parfois les années, les coordonnées etc.) on peut les nettoyer un peu en utilisant les fonctions de traitement des chaînes de caractères du package `stringr` qui a fait partie de `tidyverse` (donc qui est déjà activé).
 
 ```{r}
-synthese <- synthese%>% 
+synthese <- synthese %>% 
   mutate(lieu = str_replace_all(lieu, " \\s*\\([^\\)]+\\)", ""),# suppr. texte entre parenthèses
          lieu = str_replace_all(lieu, "[:digit:]", ""), # suppr. les chiffres (coords, années)
          lieu = str_replace_all(lieu, "[\\-\\/]", ""), # suppr. certains caractères spéciaux
@@ -439,7 +474,7 @@ Tableau mise en forme :
 synthese %>% 
     DT::datatable(rownames = FALSE) %>% 
     DT::formatRound(columns = c('a', 'b'), digits = 4) %>% 
-    DT::formatRound(columns = c('r2'), digits = 2) %>% 
+    DT::formatRound(columns = c('r2_ajuste'), digits = 2) %>% 
     DT::formatRound(columns = c('taille_mini', 'taille_maxi'), digits = 1) %>% 
     DT::formatCurrency(columns = c('n_ind'), currency = "",
                        interval = 3, mark = " ", digits = 0)
@@ -448,7 +483,9 @@ synthese %>%
 
 ## Mise en perspective graphique
 
-```{r}
+On peut reproduire le type de graphique que propose Fishbase pour situer les relations taille - poids les unes par rapport aux autres.
+
+```{r, class.source = 'fold-hide'}
 g <- ggplot(data = synthese, aes(x = b, y = log(a, base = 10), text = lieu)) +
   geom_point() +
   geom_point(data = synthese[1,], color = "red", size = 2) +
