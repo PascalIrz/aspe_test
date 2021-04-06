@@ -1,0 +1,85 @@
+---
+title: "Richesse par bassin"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Chargement des packages
+
+```{r, eval = TRUE, echo = TRUE, message = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+
+# Principe
+
+Pour calculer les richesses par bassin au fil du temps, on doit procéder par étapes :
+
+- obtention du découpage des bassins, à l'échelle appropriée
+- positionner les stations pour les affecter aux bassins 
+- Calculer la richesse à chaque pêche
+- agréger les pêches par année et bassin
+
+# Découpage géographique en bassins
+
+## Téléchargement de la couche des bassins
+
+Le découpage des bassins au sens de la DCE est téléchargeable depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/bassins-dce/), au format GeoJSON ou [shapefile](https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5).
+
+Pour un découpage plus fin il faut aller sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). 
+
+Les commandes suivantes permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile.
+
+```{r}
+# url_bv <- "https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5"
+bv <- geo_creer_polygone_bassins(repertoire = "raw_data")
+```
+
+La taille de l'objet créé est importante car le niveau de découpage est fin (`r nrow(bv)` polygones) et le tracé est précis.
+
+```{r}
+object.size(bv) %>% format(units = "auto")
+```
+
+## Simplification de l'objet
+
+Pour des besoins plus "macro" et pour que chaque entité géographique comprenne plusieurs stations d'échantillonnage, on peut regrouper les entités.
+
+```{r}
+bv_simp <- bv %>% 
+  group_by(CdSecteurH, LbSecteurH) %>% 
+  summarise()
+```
+
+
+Ensuite, pour la plupart des usages on peut simplifier la couche des bassins. La fonction `ms_simplify()` du package `rmapshaper` est préférable à `st_simplify()` du package `sf` car elle conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements).
+
+```{r}
+bv_simp <- rmapshaper::ms_simplify(bv_simp, keep = 0.01)
+
+object.size(bv_simp) %>% format(units = "auto")
+```
+```{r}
+ggplot(bv_simp) + geom_sf()
+```
+
+Si l'on veut sauvegarder les bassins :
+
+```{r, eval = FALSE}
+save(bv_simp, file = "processed_data/bv_simp.RData")
+```
+
+# Inventaires piscicoles
+
+```{r}
+
+```
+

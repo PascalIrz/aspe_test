@@ -39,7 +39,7 @@ Pour déterminer les valeurs des coefficients sur un jeu de données, les deux t
 
 $\log(Poids)=\log(a)+b\cdot log(Longueur)$
 
-Il suffit d'effectuer la régression linéaire de $\log(Poids)$ en fonction de $log(Longueur)$, de récupérer les coefficients $a'=\log(a)$ et $b'=b$, puis de calculer $a=e^{a'}$.
+Il suffit d'effectuer la régression linéaire de $\log(Poids)$ en fonction de $log(Longueur)$, de récupérer les coefficients $\alpha=\log(a)$ et $\beta=b$, puis de calculer $a=e^{\alpha}$.
 
 ## Contraintes sur le jeu de données
 
@@ -304,22 +304,25 @@ log(poids) = log(`r alpha`) + `r beta` x log(longueur), soit, en conservant pas 
 
 Poids(g) = `r exp(alpha) %>% format(scientific = FALSE)` x Longueur(cm)^`r beta`^
 
-Graphiquement, on peut représenter la relation avec des axes arithmétiques ou bien log-transformés. Les courbes en rouge indiquent les valeurs prédites par le modèle.
+Graphiquement, on peut représenter la relation avec des axes arithmétiques ou bien log-transformés. Les courbes en rouge indiquent les valeurs prédites par le modèle. Elles sont contenues dans le modèle et on y accède par `mod$fitted.values`. Comme le modèle prédit $\log(Poids)$, pour obtenir le poids prédit on applique une exponentielle avec la fonction `exp()`.
 
 ```{r, fig.width=9, class.source = 'fold-hide'}
 tp_esp <- tp_esp %>% 
-  cbind(predicted = exp(mod$fitted.values)) %>% #¥ ajout des valeurs prédites
+  cbind(predicted = exp(mod$fitted.values)) %>% # ajout des valeurs prédites
   arrange(mei_taille) # mise en ordre de taille (pour le geom_line())
 
+# graphique en axes arithmétiques
 gg1 <- ggplot(data = tp_esp, aes(x = mei_taille, y = mei_poids)) +
   geom_point(size = 0.2) +
   geom_line(aes(y = predicted), col = "red", size = 1) +
   labs(x = "Longueur (mm)", y = "Masse (g)", title = mon_espece)
 
+# graphique en axes log-log
 gg2 <- gg1 +
   scale_x_log10() +
   scale_y_log10()
 
+# assemblage des graphiques
 ggpubr::ggarrange(gg1, gg2, nrow = 1)
 ```
 
