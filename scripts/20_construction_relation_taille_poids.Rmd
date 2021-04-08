@@ -57,14 +57,16 @@ Il faut aussi que les distributions des deux variables soient "raisonnablement" 
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe.RData")
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe.RData")
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/mei.RData")
 ```
 
 # Gammes de taille et de poids
@@ -498,5 +500,5 @@ g <- ggplot(data = synthese, aes(x = b, y = log(a, base = 10), text = lieu)) +
 plotly::ggplotly(g, tooltip="text")
 ```
 
-Il est rassurant que notre point ne tombe pas totalement en dehors du nuage de points.
+Il est rassurant que notre point ne tombe pas totalement en dehors du nuage de points. Le point en bas à gauche est pour le moins douteux.
 

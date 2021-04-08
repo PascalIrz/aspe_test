@@ -24,13 +24,15 @@ library(aspe)
 library(tidyverse)
 
 load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe.RData")
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/mei.RData")
 ```
 
 # Grandes lignes de l'analyse
@@ -287,7 +289,7 @@ tp <- qtp_calcul(df = tp_data,
 
 tp %>% 
   DT::datatable(rownames = FALSE) %>% 
-    DT::formatRound(columns = c('alpha', 'beta', 'r2'), digits = 3)
+    DT::formatRound(columns = c('a', 'b', 'r2_ajuste'), digits = 3)
 ```
 
 
