@@ -175,6 +175,7 @@ coords_wgs84 <- data %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
 ```
 
+On spatialise
 
 ```{r}
 data_geo <- data %>%
@@ -182,4 +183,5 @@ data_geo <- data %>%
   select(-(pop_coordonnees_x:typ_code_epsg)) %>% 
   sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326)
 ```
+
 
