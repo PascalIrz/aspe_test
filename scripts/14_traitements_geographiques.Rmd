@@ -24,6 +24,9 @@ Le chargement du package {aspe} est supposées déjà réalisé (voir [ce suppor
 ```{r, eval = FALSE}
 library(aspe)
 library(tidyverse)
+library(mapview)
+
+mapviewOptions(fgb = FALSE)
 
 load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
@@ -114,10 +117,10 @@ station <- station %>%
 
 ```{r, eval = FALSE}
 coords_wgs84 <- geo_convertir_coords_df(df = station,
-                                    var_x = "sta_coordonnees_x",
-                                    var_y = "sta_coordonnees_y",
-                                    var_crs_initial = "typ_code_epsg",
-                                    crs_sortie = 4326) %>%
+                                        var_x = "sta_coordonnees_x",
+                                        var_y = "sta_coordonnees_y",
+                                        var_crs_initial = "typ_code_epsg",
+                                        crs_sortie = 4326) %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
 ```
 
@@ -169,37 +172,29 @@ Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réali
 
 ### Téléchargement
 
-Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/).
+Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `osm_depts_tod()` du package {tod}.
 
 ```{r, eval = FALSE, echo = TRUE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-geo_telecharger_depts(url = url_depts,
-                  repertoire = "raw_data")
+depts <- tod::osm_depts_tod(url = url_depts,
+                            repertoire = "raw_data")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-geo_telecharger_depts(url = url_depts,
-                  repertoire = "../raw_data")
+depts <- tod::osm_depts_tod(url = url_depts,
+                            repertoire = "../raw_data")
 ```
 
-### Création d'un polygone englobant les départements choisis entouré d'un buffer
+### Création d'un polygone pour la région
 
-```{r, eval = FALSE, echo = TRUE}
-region <- geo_creer_polygone_region (couche_shp_departements = "raw_data/departements-20140306-100m.shp",
-                                 departements_selectionnes = c("22", "29", "35", "56"),
-                                 distance_buffer = 1,
-                                 intitule_region = "Bretagne")
+Il s'agit ici de créer un polygone unique de la région englobant les départements choisis et entouré d'un buffer pour éviter le risque de "perdre" des données en bordure de région (il y en a car les cours d'eau servent fréquemment à délimiter les départements donc les régions). Le paramètre `distance_buffer` est en kilomètres.
 
-```
-
-
-```{r, eval = TRUE, echo = FALSE}
-
-region <- geo_creer_polygone_region (couche_shp_departements = "../raw_data/departements-20140306-100m.shp",
-                                 departements_selectionnes = c("22", "29", "35", "56"),
-                                 distance_buffer = 1,
-                                 intitule_region = "Bretagne")
+```{r}
+region <- tod::osm_creer_polygone_region(departements_sf = depts,
+                                         departements_selectionnes = c(22, 29, 56, 35),
+                                         intitule_region = "Bretagne",
+                                         distance_buffer = 0.1)
 
 ```
 
@@ -244,18 +239,18 @@ point_prelevement <- point_prelevement %>%
   left_join(y = ref_type_projection,
             by = c("pop_typ_id" = "typ_id"))
 
-coords_wgs84 <- convertir_coords_df(df = point_prelevement,
-                                    var_x = "pop_coordonnees_x",
-                                    var_y = "pop_coordonnees_y",
-                                    var_crs_initial = "typ_code_epsg",
-                                    crs_sortie = 4326) %>%
+coords_wgs84 <- geo_convertir_coords_df(df = point_prelevement,
+                                        var_x = "pop_coordonnees_x",
+                                        var_y = "pop_coordonnees_y",
+                                        var_crs_initial = "typ_code_epsg",
+                                        crs_sortie = 4326) %>%
   rename(pop_x_wgs84 = X, pop_y_wgs84 = Y)
 
 point_prelevement <- point_prelevement %>%
   bind_cols(coords_wgs84) %>%
   select(-(pop_com_code_insee_wama:pop_fog_id_cerema), -(pop_uti_id:typ_code_epsg))
 
-# Sélection des stations qui sont dans la région
+# Sélection des points qui sont dans la région
 point_prelevement_geo <- point_prelevement %>%
   sf::st_as_sf(coords = c("pop_x_wgs84", "pop_y_wgs84"), crs = 4326)
 

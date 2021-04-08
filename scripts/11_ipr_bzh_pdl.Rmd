@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 Ce document donne un exemple de chaîne de traitement des données Aspe pour présenter des IPR sur une région et effectuer des vérifications au moyen de l'ancienne macro Excel de calcul de cet indice.
 
-Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`.
+Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`, comme détaillé dans le [tuto dédié](https://rpubs.com/kamoke/713407).
 
 Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `ipr_`.
 

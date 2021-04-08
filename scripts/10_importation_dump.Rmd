@@ -67,22 +67,24 @@ library(tidyverse)
 
 ## Cas 1 : votre machine a 16Go de RAM ou plus
 
-On importe la totalité de la base en une fois, ce qui est bien pratique. Dans la logique de l'arborescence du projet, le fichier de données - ici au format compressé archive `.gz` - est stocké dans le répertoire `raw_data`.
+On importe la totalité de la base en une fois, ce qui est bien pratique. Dans la logique de l'arborescence du projet, le fichier de données - ici préalablement décompressé - est stocké dans le répertoire `raw_data`.
 
-Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'objet "Environnement" de RStudio.
+Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'onglet "Environnement" de RStudio.
 
 ```{r, eval = FALSE}
-imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql.gz")
+imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql")
 ```
 
 L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
 
 ![](../assets/message_erreur_import.png)
 
-Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite.
+Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite. Comme la table `mesure_individuelle` pèse à elle seule la moitié du volume de la base, on choisit de la conserver dans un fichier à part.
 
 ```{r, eval = FALSE}
-save.image(file = "processed_data/toutes_tables_aspe.RData")
+save(mesure_individuelle, file = "processed_data/mei.RData")
+rm(mesure_individuelle)
+save.image(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 >NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.

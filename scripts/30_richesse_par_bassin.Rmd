@@ -34,12 +34,9 @@ Pour calculer les richesses par bassin au fil du temps, on doit procéder par é
 
 Le découpage des bassins au sens de la DCE est téléchargeable depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/bassins-dce/), au format GeoJSON ou [shapefile](https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5).
 
-Pour un découpage plus fin il faut aller sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). 
-
-Les commandes suivantes permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile.
+Un découpage plus fin est disponible sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). La fonction `geo_creer_polygone_bassins()` du package {aspe} permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile proposée. Par défaut l'archive zip et les fichiers décompressés sont stockés dans un sous-répertoire `"raw_data"` qui est créé s'il ne pré-existe pas. 
 
 ```{r}
-# url_bv <- "https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5"
 bv <- geo_creer_polygone_bassins(repertoire = "raw_data")
 ```
 

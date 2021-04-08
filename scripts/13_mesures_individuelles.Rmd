@@ -28,14 +28,16 @@ Les fonctions dédiées au traitement des mesures individuelles sont nommées av
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe.RData")
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe.RData")
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/mei.RData")
 ```
 
 Vérification de la présence des tables dans l'environnement.
