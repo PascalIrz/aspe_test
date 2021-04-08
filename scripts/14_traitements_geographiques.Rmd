@@ -26,14 +26,14 @@ library(aspe)
 library(tidyverse)
 library(mapview)
 
-mapviewOptions(fgb = FALSE)
-
 load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE, message = FALSE}
 library(aspe)
 library(tidyverse)
+
+mapview::mapviewOptions(fgb = FALSE)
 
 load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
@@ -115,7 +115,7 @@ station <- station %>%
 
 >ATTENTION, cette opération prend une dizaine de minutes environ.
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 coords_wgs84 <- geo_convertir_coords_df(df = station,
                                         var_x = "sta_coordonnees_x",
                                         var_y = "sta_coordonnees_y",
@@ -127,11 +127,11 @@ coords_wgs84 <- geo_convertir_coords_df(df = station,
 Comme la reprojection est une opération chronophage, il est intéressant d'en sauvegarder le résultat.
 
 ```{r, eval = FALSE}
-save(coords_wgs84, file = "processed_data/sta_coords_wgs84.RData")
+# save(coords_wgs84, file = "processed_data/sta_coords_wgs84.RData")
 ```
 
 ```{r, echo = FALSE}
-load(file = "../processed_data/sta_coords_wgs84.RData")
+#load(file = "../processed_data/sta_coords_wgs84.RData")
 ```
 
 Ajout des coordonnées WGS84 et suppression des colonnes qui ne serviront plus :
@@ -232,7 +232,7 @@ station <- station_bzh %>%
 
 On peut procéder de même sur d'autres tables contenant des coordonnées (longitude et latitude) et une variable de CRS.
 
-Par exemple pour la table des points de prélèvements `point_prelevement` ci-dessous. Par contre comme il y a beaucoup plus de points que de stations, c'est encore plus long (environ 1h).
+Par exemple pour la table des points de prélèvements `point_prelevement` ci-dessous. Par contre comme il y a beaucoup plus de points que de stations, c'est plus long.
 
 ```{r, eval = FALSE}
 point_prelevement <- point_prelevement %>%
@@ -254,16 +254,17 @@ point_prelevement <- point_prelevement %>%
 point_prelevement_geo <- point_prelevement %>%
   sf::st_as_sf(coords = c("pop_x_wgs84", "pop_y_wgs84"), crs = 4326)
 
-mapview::mapview(point_prelevement_geo)
-
 point_prelevement_bzh <- sf::st_join(point_prelevement_geo, region) %>%
   filter(!is.na(region))
 
-mapview::mapview(region, alpha.regions = 0.1,
+mapview::mapview(point_prelevement_bzh, alpha = 0.9, 
                  map.types = c("OpenStreetMap", "CartoDB.Positron", "CartoDB.DarkMatter",
-                               "Esri.WorldImagery", "OpenTopoMap")) +
-  mapview::mapview(point_prelevement_bzh, alpha = 0.9, col.regions = 'blue')
+                               "Esri.WorldImagery", "OpenTopoMap"))
+```
 
+
+
+```{r, eval = FALSE}
 coords <- point_prelevement_bzh %>%
   sf::st_coordinates() %>%
   as.data.frame() %>%

@@ -11,13 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Chargement des packages
 
-```{r, eval = TRUE, echo = TRUE, message = FALSE}
+```{r, eval = TRUE, echo = TRUE, message = FALSE, warning=FALSE}
 library(aspe)
+library(tod)
 library(tidyverse)
-
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
-
 
 # Principe
 
@@ -34,16 +32,26 @@ Pour calculer les richesses par bassin au fil du temps, on doit procéder par é
 
 Le découpage des bassins au sens de la DCE est téléchargeable depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/bassins-dce/), au format GeoJSON ou [shapefile](https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5).
 
-Un découpage plus fin est disponible sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). La fonction `geo_creer_polygone_bassins()` du package {aspe} permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile proposée. Par défaut l'archive zip et les fichiers décompressés sont stockés dans un sous-répertoire `"raw_data"` qui est créé s'il ne pré-existe pas. 
+Un découpage plus fin est disponible sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). La fonction `sie_carthage_bassins_tod()` du package {tod} permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile proposée. Par défaut l'archive zip et les fichiers décompressés sont stockés dans un sous-répertoire `"raw_data"` qui est créé s'il ne pré-existe pas. 
 
-```{r}
-bv <- geo_creer_polygone_bassins(repertoire = "raw_data")
+```{r, eval = FALSE}
+bv <- tod::sie_carthage_bassins_tod(repertoire = "raw_data")
+```
+
+```{r, echo = FALSE}
+load(file = "../processed_data/bv.RData")
 ```
 
 La taille de l'objet créé est importante car le niveau de découpage est fin (`r nrow(bv)` polygones) et le tracé est précis.
 
 ```{r}
 object.size(bv) %>% format(units = "auto")
+```
+
+Si l'on veut sauvegarder les bassins :
+
+```{r, eval = FALSE}
+save(bv, file = "processed_data/bv.RData")
 ```
 
 ## Simplification de l'objet
@@ -53,11 +61,11 @@ Pour des besoins plus "macro" et pour que chaque entité géographique comprenne
 ```{r}
 bv_simp <- bv %>% 
   group_by(CdSecteurH, LbSecteurH) %>% 
-  summarise()
+    summarise()
 ```
 
 
-Ensuite, pour la plupart des usages on peut simplifier la couche des bassins. La fonction `ms_simplify()` du package `rmapshaper` est préférable à `st_simplify()` du package `sf` car elle conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements).
+Ensuite, pour la plupart des usages on peut simplifier la géométrie des bassins. La fonction `ms_simplify()` du package `rmapshaper` est préférable à `st_simplify()` du package `sf` car elle conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements).
 
 ```{r}
 bv_simp <- rmapshaper::ms_simplify(bv_simp, keep = 0.01)
@@ -76,7 +84,102 @@ save(bv_simp, file = "processed_data/bv_simp.RData")
 
 # Inventaires piscicoles
 
-```{r}
+```{r, eval = FALSE}
 
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+```{r, eval = TRUE, echo = FALSE}
+
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+```{r}
+passerelle <- mef_creer_passerelle()
+```
+
+On ne conserve que les pêches complètes à pied.
+
+```{r}
+data <- passerelle   %>% 
+  left_join(y = operation_description_peche %>%
+                      select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
+  left_join(y = ref_moyen_prospection %>%
+                      select(mop_id, mop_libelle)) %>% 
+  filter(mop_libelle == 'A pied') %>% 
+  select(-mop_id, -mop_libelle) %>% 
+  left_join(y = operation %>%
+                    select(ope_id, pro_id = ope_pro_id)) %>% 
+  filter(pro_id == 1) %>% #  pêches complètes : pro_id == 1
+  select(-pro_id)
+```
+
+Ajout des données sur les captures et les codes espèces
+
+```{r}
+data <- data %>% 
+  left_join(y = lot_poissons %>%
+                    select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
+  left_join(y = ref_espece %>%
+                    select(esp_id, esp_code_alternatif)) %>% 
+  select(-esp_id)
+```
+
+Agrégation pour simplifier le tableau
+
+```{r}
+data <- data %>% 
+  group_by(sta_id, pop_id, ope_id, esp_code_alternatif) %>% 
+    summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>% 
+  ungroup()
+  
+```
+
+Ajout des données sur les points de prélèvements pour avoir les coordonnées
+
+Comme il y a dans les données plusieurs systèmes de coordonnées (CRS) qui cohabitent, il va falloir non seulement récupérer les coordonnées, mais aussi les homogénéiser en les reprojetant dans un même CRS (ici le WGS84 du GPS).
+
+```{r}
+data <- data %>% 
+  left_join(y = point_prelevement %>% 
+                select(pop_id, pop_coordonnees_x, pop_coordonnees_y, typ_id = pop_typ_id))
+```
+
+
+Il apparaît que dans le référentiel des systèmes de coordonnées, pour le Lambert II étendu, le code EPSG (27572) est manquant. Il faut donc compléter la table `ref_type_projection`.
+
+```{r}
+ref_type_projection <- ref_type_projection %>%
+  mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
+                                yes = 27572,
+                                no = typ_code_epsg))
+```
+
+On peut alors faire la jointure pour ajouter au tableau `data` le code EPSG du CRS.
+
+```{r}
+data <- data %>% 
+  left_join(y = ref_type_projection %>%
+                select(typ_id, typ_code_epsg))
+```
+
+
+On calcule les coordonnées en WGS84 avec la fonction `geo_convertir_coords_df()`.
+
+```{r}
+coords_wgs84 <- data %>% 
+  geo_convertir_coords_df(var_x = "pop_coordonnees_x",
+                          var_y = "pop_coordonnees_y",
+                          var_crs_initial = "typ_code_epsg",
+                          crs_sortie = 4326) %>%
+  rename(x_wgs84 = X, y_wgs84 = Y)
+```
+
+
+```{r}
+data_geo <- data %>%
+  bind_cols(coords_wgs84) %>%
+  select(-(pop_coordonnees_x:typ_code_epsg)) %>% 
+  sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326)
 ```
 
