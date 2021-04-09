@@ -184,4 +184,35 @@ data_geo <- data %>%
   sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326)
 ```
 
+Pour effectuer la jointure entre les bassins et les stations, il faut que les deux soient dans un même système de coordonnées (CRS) donc on reprojette les bassins (qui sont en Lambert 93) en WGS84 dont l'indentifiant est `4326`.
+
+```{r}
+bv <- bv %>% 
+  sf::st_transform(crs = 4326)
+```
+
+
+```{r}
+data_geo <- data_geo %>% 
+  #sample_n(500) %>% 
+  sf::st_join(bv) %>% 
+  filter(!(CdSecteurH %in% c('Y7', 'Y8', 'Y9'))) %>% #• suppression Corse
+  filter(!is.na(gid)) # suppression des points sans bv
+
+```
+
+```{r}
+richesse_par_bv <- data_geo %>% 
+  group_by(CdSecteurH, LbSecteurH) %>% 
+    summarise(richesse = n_distinct(esp_code_alternatif)) %>% 
+  ungroup() %>%    
+  sf::st_drop_geometry() %>% 
+  select(CdSecteurH, richesse) %>% 
+  right_join(y = bv_simp) %>% 
+  sf::st_as_sf()
+```
+
+```{r}
+mapview::mapview(richesse_par_bv, zcol = "richesse")
+```
 
