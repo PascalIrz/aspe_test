@@ -148,12 +148,16 @@ data(traits_poissons)
 DT::datatable(traits_poissons,
               rownames = FALSE,
               options = list(
-                columnDefs = list(list(className = 'dt-center', targets = 0:5))
+                columnDefs = list(list(className = 'dt-center', targets="_all"))
             ))
 ```
 
+Restriction du jeu de données aux espèces de poissons (suppression des écrevisses, des hybrides ou des individus pour lesquels la détermination à l'espèce n'a pas été possible) qui ne sont ni marines ni lacustres.
+
 ```{r}
-mes_especes <- traits_poissons$esp_code_alternatif
+mes_especes <- traits_poissons %>% 
+  filter(Marin == FALSE & Lacustre == FALSE) %>% 
+  pull(esp_code_alternatif)
 
 data <- data %>% 
   filter(esp_code_alternatif %in% mes_especes)
@@ -169,7 +173,7 @@ Comme il y a dans les données plusieurs systèmes de coordonnées (CRS) qui coh
 ```{r}
 data <- data %>% 
   left_join(y = point_prelevement %>% 
-                select(pop_id, pop_coordonnees_x, pop_coordonnees_y, typ_id = pop_typ_id))
+                  select(pop_id, pop_coordonnees_x, pop_coordonnees_y, typ_id = pop_typ_id))
 ```
 
 # Spatialisation
@@ -183,8 +187,8 @@ Il apparaît que dans le référentiel des systèmes de coordonnées, pour le La
 ```{r}
 ref_type_projection <- ref_type_projection %>%
   mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
-                                yes = 27572,
-                                no = typ_code_epsg))
+                                 yes = 27572,
+                                 no = typ_code_epsg))
 ```
 
 On peut alors faire la jointure pour ajouter au tableau `data` le code EPSG du CRS.
@@ -192,7 +196,7 @@ On peut alors faire la jointure pour ajouter au tableau `data` le code EPSG du C
 ```{r}
 data <- data %>% 
   left_join(y = ref_type_projection %>%
-                select(typ_id, typ_code_epsg))
+                  select(typ_id, typ_code_epsg))
 ```
 
 ### Calcul des coordonnées
@@ -258,8 +262,21 @@ richesse_par_bv <- data_geo %>%
 ```
 
 ```{r}
-pal <- RColorBrewer::brewer.pal(20, "OrRd") 
-mapview::mapview(richesse_par_bv, zcol = "richesse", col.regions = pal)
+pal <- RColorBrewer::brewer.pal(20, "OrRd")
+
+map_data <- richesse_par_bv %>% 
+                   rename("Secteur Hydro" = LbSecteurH,
+                          Richesse = richesse,
+                          "Nombre de pêches" = nb_ope)
+
+mapview::mapview(map_data,
+                 zcol = "Richesse",
+                 col.regions = pal,
+                 layer.name = "Richesse",
+                 popup = leafpop::popupTable(prov,
+                                             zcol = c("Secteur Hydro", "Richesse", "Nombre de pêches"),
+                                             feature.id = FALSE,
+                                             row.numbers = FALSE))
 ```
 
 ## Lien entre richesse et effort de prospection ?
