@@ -56,7 +56,7 @@ Pour savoir sur quelle station a été capturé ce goujon de 87mm, il faut donc 
 
 ## Principe
 
-Pour simplifier les différents traitements et éviter d'avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n'incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé "passerelle" en ce qu'il fait la jonction entre les diféfrentes composantes de la base.
+Pour simplifier les différents traitements et éviter d'avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n'incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé "passerelle" en ce qu'il fait la jonction entre les différentes composantes de la base.
 
 
 ```{r}

@@ -2919,7 +2919,7 @@ pre code {
 
 <h1 class="title toc-ignore">ASPE - Traitements sur les IPR</h1>
 <h4 class="author">Pascal Irz</h4>
-<h4 class="date">Le 08 avril 2021</h4>
+<h4 class="date">Le 09 avril 2021</h4>
 
 </div>
 
@@ -2957,7 +2957,7 @@ load(file = &quot;processed_data/toutes_tables_aspe_sauf_mei.RData&quot;)</code>
 </div>
 <div id="principe" class="section level2">
 <h2>Principe</h2>
-<p>Pour simplifier les différents traitements et éviter d’avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n’incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé “passerelle” en ce qu’il fait la jonction entre les diféfrentes composantes de la base.</p>
+<p>Pour simplifier les différents traitements et éviter d’avoir à reproduire à chaque requête de sélection toute la chaîne de liaison des tables de la colonne vertébrale, on peut construire un tableau de correspondance des clés primaires. On n’incluera toutefois pas la table mesure_individuelle car elle comprend des millions de lignes, ce qui alourdirait considérablement le tableau. Le traitement des mesures individuelles sera abordé ultérieurement. Pour la suite, ce tableau de correspondance sera nommé “passerelle” en ce qu’il fait la jonction entre les différentes composantes de la base.</p>
 <pre class="r"><code>passerelle &lt;- mef_creer_passerelle()
 names(passerelle)</code></pre>
 <pre><code>## [1] &quot;sta_id&quot; &quot;pop_id&quot; &quot;ope_id&quot; &quot;obj_id&quot; &quot;pre_id&quot; &quot;lop_id&quot;</code></pre>

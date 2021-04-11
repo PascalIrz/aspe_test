@@ -6,12 +6,12 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 # Chargement des packages
 
-```{r, eval = TRUE, echo = TRUE, message = FALSE, warning=FALSE}
+```{r}
 library(aspe)
 library(tod)
 library(tidyverse)
@@ -69,20 +69,20 @@ Ensuite, pour la plupart des usages on peut simplifier la géométrie des bassin
 
 ```{r}
 bv_simp <- rmapshaper::ms_simplify(bv_simp, keep = 0.01)
-
-object.size(bv_simp) %>% format(units = "auto")
 ```
+
+Les contours des bassins ainsi simplifiés pèsent `r object.size(bv_simp) %>% format(units = "auto")`, ce qui est beaucoup plus raisonnable. On peut les visualiser avec le package `ggplot2`.
+
 ```{r}
 ggplot(bv_simp) + geom_sf()
 ```
 
-Si l'on veut sauvegarder les bassins :
-
-```{r, eval = FALSE}
-save(bv_simp, file = "processed_data/bv_simp.RData")
-```
 
 # Inventaires piscicoles
+
+## Chargement des données
+
+Les données ont été parsées depuis un dump de la base Aspe (cf. [ce tuto](https://rpubs.com/kamoke/713407)).
 
 ```{r, eval = FALSE}
 
@@ -93,6 +93,10 @@ load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 
 load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
+
+## Assemblage et filtrage des données
+
+Le principe pour utiliser les tables de la base sql d'origine est de constituer un `dataframe` "passerelle" qui relie les tables d'origine par les identifiants de leurs objets (stations, points, opérations, lots, etc.). On peut ensuite compléter cette ossature par des jointures sur les champs contenant les identifiants. La démarche se retrouve systématiquement dans les traitements donc elle n'a été détaillée qu'une fois dans [ce tuto](https://rpubs.com/kamoke/713491).
 
 ```{r}
 passerelle <- mef_creer_passerelle()
@@ -114,7 +118,7 @@ data <- passerelle   %>%
   select(-pro_id)
 ```
 
-Ajout des données sur les captures et les codes espèces
+## Ajout des données sur les captures
 
 ```{r}
 data <- data %>% 
@@ -125,7 +129,7 @@ data <- data %>%
   select(-esp_id)
 ```
 
-Agrégation pour simplifier le tableau
+## Agrégation pour simplifier le tableau
 
 ```{r}
 data <- data %>% 
@@ -135,7 +139,11 @@ data <- data %>%
   
 ```
 
-Ajout des données sur les points de prélèvements pour avoir les coordonnées
+>NB Ici nous n'avons pas trié les espèces, qui sont au nombre de `r data %>% pull(esp_code_alternatif) %>% n_distinct()` dont des écrevisses, des hybrides ou des taxons identifiés au genre. Ce tri reste à faire.
+
+## Ajout des données sur les points de prélèvements
+
+Cette étape est nécessaire pour avoir les coordonnées et donc permettre de relier les points aux bassins.
 
 Comme il y a dans les données plusieurs systèmes de coordonnées (CRS) qui cohabitent, il va falloir non seulement récupérer les coordonnées, mais aussi les homogénéiser en les reprojetant dans un même CRS (ici le WGS84 du GPS).
 
@@ -145,6 +153,11 @@ data <- data %>%
                 select(pop_id, pop_coordonnees_x, pop_coordonnees_y, typ_id = pop_typ_id))
 ```
 
+# Spatialisation
+
+## Gestion des CRS
+
+### Ajout des codes EPSG
 
 Il apparaît que dans le référentiel des systèmes de coordonnées, pour le Lambert II étendu, le code EPSG (27572) est manquant. Il faut donc compléter la table `ref_type_projection`.
 
@@ -163,6 +176,7 @@ data <- data %>%
                 select(typ_id, typ_code_epsg))
 ```
 
+### Calcul des coordonnées
 
 On calcule les coordonnées en WGS84 avec la fonction `geo_convertir_coords_df()`.
 
@@ -175,7 +189,9 @@ coords_wgs84 <- data %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
 ```
 
-On spatialise
+## Création d'objects géographiques
+
+On crée des objets "points" de classe `sf`.  
 
 ```{r}
 data_geo <- data %>%
@@ -191,28 +207,89 @@ bv <- bv %>%
   sf::st_transform(crs = 4326)
 ```
 
+## Croisement géographique
+
+On attribue à chaque donnée (en fait à chaque lot de poissons) le bassin d'appartenance de son point, puis on restreint à la France continentale. 
 
 ```{r}
 data_geo <- data_geo %>% 
-  #sample_n(500) %>% 
   sf::st_join(bv) %>% 
   filter(!(CdSecteurH %in% c('Y7', 'Y8', 'Y9'))) %>% #• suppression Corse
   filter(!is.na(gid)) # suppression des points sans bv
 
 ```
 
+# Richesse par bassin
+
+## Agrégation par bassin
+
+On agrège, toutes années confondues.
+
 ```{r}
 richesse_par_bv <- data_geo %>% 
   group_by(CdSecteurH, LbSecteurH) %>% 
-    summarise(richesse = n_distinct(esp_code_alternatif)) %>% 
+    summarise(richesse = n_distinct(esp_code_alternatif),
+              nb_ope = n_distinct(ope_id)) %>% 
   ungroup() %>%    
   sf::st_drop_geometry() %>% 
-  select(CdSecteurH, richesse) %>% 
+  select(CdSecteurH, richesse, nb_ope) %>% 
   right_join(y = bv_simp) %>% 
-  sf::st_as_sf()
+  sf::st_as_sf() %>% 
+  filter(!is.na(richesse))
 ```
 
 ```{r}
-mapview::mapview(richesse_par_bv, zcol = "richesse")
+pal <- RColorBrewer::brewer.pal(20, "OrRd") 
+mapview::mapview(richesse_par_bv, zcol = "richesse", col.regions = pal)
 ```
+
+## Lien entre richesse et effort de prospection ?
+
+Pour savoir s'il y a un effet de l'effort de prospection sur la richesse détectée, on peut représenter la richesse en fonction du nombre d'opérations. Un point représente un bassin.
+
+```{r}
+ggplot(data = richesse_par_bv,
+       aes(x = nb_ope, y = richesse)) +
+  geom_point() +
+  scale_x_log10() +
+  geom_smooth(method = lm, se = FALSE)
+```
+
+>Là on est fixé ! Ca interroge sur la représentation cartographique ...
+
+# Approche temporelle
+
+## Richesse moyenne par opération
+
+On calcule d'abord la richesse par opération.
+
+```{r}
+richesse_par_ope <- data %>% 
+  left_join(y = operation %>% select(ope_id, ope_date)) %>% 
+  mutate(ope_date = as.character(ope_date),
+         ope_date = lubridate::ymd_hms(ope_date),
+         annee = lubridate::year(ope_date)) %>% 
+  group_by(pop_id, ope_id, annee) %>% 
+    summarise(richesse_ope = n_distinct(esp_code_alternatif))
+```
+
+Puis on moyenne par année.
+
+```{r}
+richesse_moy_point_an <- richesse_par_ope %>% 
+  group_by(annee) %>% 
+    summarise(richesse_moy = mean(richesse_ope),
+              richesse_et = sd(richesse_ope),
+              richesse_ic = sd(richesse_ope) / sqrt(n()))
+```
+
+Les barres représentent l'intervalle de confiance sur la moyenne.
+
+```{r}
+ggplot(data = richesse_moy_point_an,
+       aes(x = annee, y = richesse_moy, ymax = richesse_moy + richesse_ic, ymin = richesse_moy - richesse_ic)) +
+  geom_pointrange() +
+  scale_y_continuous(limits = c(0, NA))
+```
+
 
