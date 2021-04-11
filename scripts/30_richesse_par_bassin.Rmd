@@ -139,9 +139,28 @@ data <- data %>%
   
 ```
 
->NB Ici nous n'avons pas trié les espèces, qui sont au nombre de `r data %>% pull(esp_code_alternatif) %>% n_distinct()` dont des écrevisses, des hybrides ou des taxons identifiés au genre. Ce tri reste à faire.
+## Sélection des espèces
 
-## Ajout des données sur les points de prélèvements
+Un tableau a été constitué pour caractériser sommairement les espèces de poissons référencées dans la base Aspe quant à leur statut (introduite ?) ou à leur habitat primaire. Il est accessible directement depuis le package {aspe} :
+
+```{r}
+data(traits_poissons)
+DT::datatable(traits_poissons,
+              rownames = FALSE,
+              options = list(
+                columnDefs = list(list(className = 'dt-center', targets = 0:5))
+            ))
+```
+
+```{r}
+mes_especes <- traits_poissons$esp_code_alternatif
+
+data <- data %>% 
+  filter(esp_code_alternatif %in% mes_especes)
+```
+
+
+# Ajout des données sur les points de prélèvements
 
 Cette étape est nécessaire pour avoir les coordonnées et donc permettre de relier les points aux bassins.
 
