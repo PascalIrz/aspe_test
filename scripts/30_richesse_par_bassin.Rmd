@@ -56,19 +56,12 @@ save(bv, file = "processed_data/bv.RData")
 
 ## Simplification de l'objet
 
-Pour des besoins plus "macro" et pour que chaque entité géographique comprenne plusieurs stations d'échantillonnage, on peut regrouper les entités.
+Pour des besoins plus "macro" et pour que chaque entité géographique comprenne plusieurs stations d'échantillonnage, on peut regrouper les entités. Ensuite, pour la plupart des usages on peut simplifier la géométrie des bassins. La fonction `sie_carthage_bassins_agr()` du package `tod` conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements) en diminuant le nombre de points (ici de 99%).
 
 ```{r}
 bv_simp <- bv %>% 
-  group_by(CdSecteurH, LbSecteurH) %>% 
-    summarise()
-```
-
-
-Ensuite, pour la plupart des usages on peut simplifier la géométrie des bassins. La fonction `ms_simplify()` du package `rmapshaper` est préférable à `st_simplify()` du package `sf` car elle conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements).
-
-```{r}
-bv_simp <- rmapshaper::ms_simplify(bv_simp, keep = 0.01)
+  tod::sie_carthage_bassins_agr(echelle = "Secteur_Hydro",
+                                prop_pts_a_garder = 0.01)
 ```
 
 Les contours des bassins ainsi simplifiés pèsent `r object.size(bv_simp) %>% format(units = "auto")`, ce qui est beaucoup plus raisonnable. On peut les visualiser avec le package `ggplot2`.
@@ -244,54 +237,72 @@ data_geo <- data_geo %>%
 
 # Richesse par bassin
 
-## Agrégation par bassin
+## Agrégation par Secteur Hydro
 
-On agrège, toutes années confondues.
+On agrège, **toutes années confondues**.
+
+La fonction `geo_aggr_richesse()` permet de choisir l'échelle spatiale d'agrégation.
+
+>NB Pour l'utiliser, il fait que les deux objets géographiques aient un ou plusieurs noms de variables en commun pour effectuer une jointure.
 
 ```{r}
-richesse_par_bv <- data_geo %>% 
-  group_by(CdSecteurH, LbSecteurH) %>% 
-    summarise(richesse = n_distinct(esp_code_alternatif),
-              nb_ope = n_distinct(ope_id)) %>% 
-  ungroup() %>%    
-  sf::st_drop_geometry() %>% 
-  select(CdSecteurH, richesse, nb_ope) %>% 
-  right_join(y = bv_simp) %>% 
-  sf::st_as_sf() %>% 
-  filter(!is.na(richesse))
+richesse_par_secteur_hydro <- geo_aggr_richesse(ope_geo_data = data_geo,
+                                                echelle = "Secteur_Hydro",
+                                                bassin_geo_poly = bv_simp)
 ```
+
 
 ```{r}
 pal <- RColorBrewer::brewer.pal(20, "OrRd")
 
-map_data <- richesse_par_bv %>% 
-                   rename("Secteur Hydro" = LbSecteurH,
-                          Richesse = richesse,
-                          "Nombre de pêches" = nb_ope)
+map_data <- richesse_par_secteur_hydro %>%
+  rename(
+    "Secteur Hydro" = LbSecteurH,
+    "Richesse" = richesse,
+    "Nombre de pêches" = nb_ope
+  )
 
-mapview::mapview(map_data,
-                 zcol = "Richesse",
-                 col.regions = pal,
-                 layer.name = "Richesse",
-                 popup = leafpop::popupTable(prov,
-                                             zcol = c("Secteur Hydro", "Richesse", "Nombre de pêches"),
-                                             feature.id = FALSE,
-                                             row.numbers = FALSE))
+mapview::mapview(
+  map_data,
+  zcol = "Richesse",
+  col.regions = pal,
+  layer.name = "Richesse",
+  popup = leafpop::popupTable(
+    map_data,
+    zcol = c("Secteur Hydro", "Richesse", "Nombre de pêches"),
+    feature.id = FALSE,
+    row.numbers = FALSE
+  )
+)
 ```
+
+
 
 ## Lien entre richesse et effort de prospection ?
 
 Pour savoir s'il y a un effet de l'effort de prospection sur la richesse détectée, on peut représenter la richesse en fonction du nombre d'opérations. Un point représente un bassin.
 
 ```{r}
-ggplot(data = richesse_par_bv,
+ggplot(data = richesse_par_secteur_hydro,
        aes(x = nb_ope, y = richesse)) +
   geom_point() +
   scale_x_log10() +
-  geom_smooth(method = lm, se = FALSE)
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = "Nombre de pêches réalisées dans le bassin",
+       y = "Richesse du bassin")
 ```
 
->Là on est fixé ! Ca interroge sur la représentation cartographique ...
+
+```{r, echo = FALSE}
+mod <- lm(richesse ~ log(nb_ope, 10), data = richesse_par_secteur_hydro)
+
+r2 <- (100 * summary(mod)$adj.r.squared) %>%
+  round()
+```
+
+
+>Là on est fixé ! Le nombre d'opérations dans les bassins explique `r #r2`% de la variabilité des richesses. Ca interroge sur la représentation cartographique et son interprétabilité.
 
 # Approche temporelle
 
@@ -300,32 +311,34 @@ ggplot(data = richesse_par_bv,
 On calcule d'abord la richesse par opération.
 
 ```{r}
-richesse_par_ope <- data %>% 
-  left_join(y = operation %>% select(ope_id, ope_date)) %>% 
+richesse_par_ope <- data %>%
+  left_join(y = operation %>% select(ope_id, ope_date)) %>%
   mutate(ope_date = as.character(ope_date),
          ope_date = lubridate::ymd_hms(ope_date),
-         annee = lubridate::year(ope_date)) %>% 
-  group_by(pop_id, ope_id, annee) %>% 
+         annee = lubridate::year(ope_date)) %>%
+  group_by(pop_id, ope_id, annee) %>%
     summarise(richesse_ope = n_distinct(esp_code_alternatif))
 ```
 
 Puis on moyenne par année.
 
 ```{r}
-richesse_moy_point_an <- richesse_par_ope %>% 
-  group_by(annee) %>% 
-    summarise(richesse_moy = mean(richesse_ope),
-              richesse_et = sd(richesse_ope),
-              richesse_ic = sd(richesse_ope) / sqrt(n()))
+# richesse_moy_point_an <- richesse_par_ope %>% 
+#   group_by(annee) %>% 
+#     summarise(richesse_moy = mean(richesse_ope),
+#               richesse_et = sd(richesse_ope),
+#               richesse_ic = sd(richesse_ope) / sqrt(n()))
 ```
 
 Les barres représentent l'intervalle de confiance sur la moyenne.
 
 ```{r}
-ggplot(data = richesse_moy_point_an,
-       aes(x = annee, y = richesse_moy, ymax = richesse_moy + richesse_ic, ymin = richesse_moy - richesse_ic)) +
-  geom_pointrange() +
-  scale_y_continuous(limits = c(0, NA))
+# ggplot(data = richesse_moy_point_an %>% filter(annee > 1978),
+#        aes(x = annee, y = richesse_moy, ymax = richesse_moy + richesse_ic, ymin = richesse_moy - richesse_ic)) +
+#   geom_pointrange() +
+#   scale_y_continuous(limits = c(0, NA)) +
+#   geom_smooth(method = "lm", se = FALSE) +
+#   labs(x = "", y = "Richesse moyenne par opération")
 ```
 
 
