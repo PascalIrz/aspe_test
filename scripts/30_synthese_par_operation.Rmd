@@ -1,0 +1,274 @@
+---
+title: "ASPE - Synthèse par opération"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Principe
+
+Il s'agit ici de préparer un jeu de données synthétique qui, une fois représenté sous forme graphique, donnera une idée claire de la répartition spatiale et temporelle des opérations de pêche ainsi que de leurs principales caractéristiques.
+
+# Préparation des données
+
+## Chargement des packages
+
+```{r}
+library(aspe)
+library(tod)
+library(tidyverse)
+```
+
+## Chargement des tables
+
+Les données ont été parsées depuis un dump de la base Aspe (cf. [ce tuto](https://rpubs.com/kamoke/713407)).
+
+```{r, eval = FALSE}
+load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+```{r, eval = TRUE, echo = FALSE}
+load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+```
+
+## Assemblage et filtrage des données
+
+Le principe pour utiliser les tables de la base sql d'origine est de constituer un `dataframe` "passerelle" qui relie les tables d'origine par les identifiants de leurs objets (stations, points, opérations, lots, etc.). On peut ensuite compléter cette ossature par des jointures sur les champs contenant les identifiants. La démarche se retrouve systématiquement dans les traitements donc elle n'a été détaillée qu'une fois dans [ce tuto](https://rpubs.com/kamoke/713491).
+
+```{r}
+passerelle <- mef_creer_passerelle()
+```
+
+On ne conserve que les pêches complètes à pied.
+
+```{r}
+data <- passerelle   %>%
+  left_join(y = operation_description_peche %>%
+              select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>%
+  left_join(y = ref_moyen_prospection %>%
+              select(mop_id, mop_libelle)) %>%
+  filter(mop_libelle == 'A pied') %>%
+  select(-mop_id, -mop_libelle) %>%
+  left_join(y = operation %>%
+              select(ope_id, pro_id = ope_pro_id, ope_date)) %>%
+  filter(pro_id == 1) %>% #  pêches complètes : pro_id == 1
+  select(-pro_id)
+```
+
+Ajout d'une variable `annee` qui servira pour des agrégations.
+
+```{r}
+data <- data %>%
+  mutate(
+    ope_date = as.character(ope_date),
+    ope_date = lubridate::ymd_hms(ope_date),
+    annee = lubridate::year(ope_date)
+  )
+```
+
+## Ajout des données sur les captures
+
+```{r}
+captures <- data %>%
+  left_join(y = lot_poissons %>%
+              select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
+  left_join(y = ref_espece %>%
+              select(esp_id, esp_code_alternatif)) %>%
+  select(-esp_id)
+```
+
+## Agrégation pour simplifier le tableau
+
+```{r}
+captures <- captures %>%
+  group_by(sta_id, pop_id, ope_id, ope_date, annee, esp_code_alternatif) %>%
+    summarise(effectif = sum(lop_effectif, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+## Sélection des espèces
+
+Un tableau a été constitué pour caractériser sommairement les espèces de poissons référencées dans la base Aspe quant à leur statut (introduite ?) ou à leur habitat primaire. Il est accessible directement depuis le package {aspe} :
+
+```{r}
+data(traits_poissons)
+
+DT::datatable(traits_poissons,
+              rownames = FALSE,
+              options = list(columnDefs = list(
+                list(className = 'dt-center', targets = "_all")
+              )))
+```
+
+Restriction du jeu de données aux espèces de poissons (suppression des écrevisses, des hybrides ou des individus pour lesquels la détermination à l'espèce n'a pas été possible) qui ne sont ni marines ni lacustres.
+
+```{r}
+mes_especes <- traits_poissons %>%
+  filter(Marin == FALSE & Lacustre == FALSE) %>%
+  pull(esp_code_alternatif)
+
+captures <- captures %>%
+  filter(esp_code_alternatif %in% mes_especes)
+```
+
+## Ajout des données sur les points de prélèvements
+
+Cette étape est nécessaire pour avoir les coordonnées et donc permettre de relier les points aux bassins.
+
+Comme il y a dans les données plusieurs systèmes de coordonnées (CRS) qui cohabitent, il va falloir non seulement récupérer les coordonnées, mais aussi les homogénéiser en les reprojetant dans un même CRS (ici le WGS84 du GPS).
+
+```{r}
+captures <- captures %>%
+  left_join(y = point_prelevement %>%
+              select(pop_id, pop_coordonnees_x, pop_coordonnees_y, typ_id = pop_typ_id))
+```
+
+# Spatialisation
+
+## Gestion des CRS
+
+### Ajout des codes EPSG
+
+Il apparaît que dans le référentiel des systèmes de coordonnées, pour le Lambert II étendu, le code EPSG (27572) est manquant. Il faut donc compléter la table `ref_type_projection`.
+
+```{r}
+ref_type_projection <- ref_type_projection %>%
+  mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) &
+                                   typ_libelle_sandre == "Lambert II Etendu"),
+                                 yes = 27572,
+                                 no = typ_code_epsg
+  ))
+```
+
+On peut alors faire la jointure pour ajouter au tableau `data` le code EPSG du CRS.
+
+```{r}
+captures <- captures %>%
+  left_join(y = ref_type_projection %>%
+              select(typ_id, typ_code_epsg))
+```
+
+### Calcul des coordonnées
+
+On calcule les coordonnées en WGS84 avec la fonction `geo_convertir_coords_df()`.
+
+```{r}
+coords_wgs84 <- captures %>%
+  geo_convertir_coords_df(
+    var_x = "pop_coordonnees_x",
+    var_y = "pop_coordonnees_y",
+    var_crs_initial = "typ_code_epsg",
+    crs_sortie = 4326
+  ) %>%
+  rename(x_wgs84 = X, y_wgs84 = Y)
+```
+
+## Création d'objects géographiques
+
+On crée des objets "points" de classe `sf`.  
+
+```{r}
+captures_geo <- captures %>%
+  bind_cols(coords_wgs84) %>%
+  select(-(pop_coordonnees_x:typ_code_epsg)) %>%
+  sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+               crs = 4326)
+```
+
+# Approche temporelle
+
+## Richesse moyenne par opération
+
+On calcule d'abord la richesse par opération.
+
+```{r}
+richesse_par_ope <- captures %>%
+  group_by(pop_id, ope_id, annee) %>%
+    summarise(richesse_ope = n_distinct(esp_code_alternatif))
+```
+
+Puis on moyenne par année et on calcule l'intervalle de confiance sur la moyenne.
+
+Cet intervalle est $moyenne \pm \dfrac{\sigma}{\sqrt{n}}$ (avec $\sigma$ l'écart-type et $n$ le nombre d'observations.)
+
+```{r}
+richesse_moy_point_an <- richesse_par_ope %>%
+  group_by(annee) %>%
+    summarise(richesse_moy = mean(richesse_ope),
+              richesse_et = sd(richesse_ope),
+              richesse_ic = sd(richesse_ope) / sqrt(n()))
+```
+
+Les barres représentent l'intervalle de confiance sur la moyenne. Les années antérieures à 1979 sont exclues car la couverture est insuffisante.
+
+```{r}
+ggplot(data = richesse_moy_point_an %>% filter(annee > 1978),
+       aes(x = annee,
+           y = richesse_moy,
+           ymax = richesse_moy + richesse_ic,
+           ymin = richesse_moy - richesse_ic)) +
+  geom_pointrange() +
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "", y = "Richesse moyenne par opération")
+```
+
+
+```{r}
+save(captures, file = "../processed_data/captures.RData")
+save(captures_geo, file = "../processed_data/captures_geo.RData")
+save(richesse_par_ope, file = "../processed_data/richesse_par_ope.RData")
+```
+
+## Evolution temporelle du nombre annuel d'opérations en base
+
+Le graphique ci-dessous comprend des pêches réalisées en régie mais pas que. 
+
+```{r}
+g_nb_ope_par_an <- captures %>% 
+  group_by(annee) %>% 
+    summarise(nb_ope = n_distinct(ope_id)) %>% 
+  ggplot(aes(x = annee, y = nb_ope)) +
+    geom_line() +
+    labs(x = "", y = "Nombre annuel d'opérations dans la base Aspe")
+
+g_nb_ope_par_an
+```
+
+## Distribution du nombre d'opérations par station
+
+```{r}
+graph_data <- captures %>% 
+  filter(!is.na(sta_id)) %>% 
+  group_by(sta_id) %>% 
+    summarise(nb_annees = n_distinct(annee))
+
+
+g_distri_nb_an_p_sta <- ggplot(data = graph_data,
+                               aes(x = nb_annees)) +
+    geom_histogram() +
+    labs(x = "Nombre d'années de données par station")
+
+g_distri_nb_an_p_sta
+```
+
+En zoomant pour éviter l'écrasement du graphique par les nombreuses stations qui n'ont été prospectées qu'une ou deux fois :
+
+```{r}
+nb_moy_annees <- graph_data %>% 
+  pull(nb_annees) %>% 
+  mean() %>% 
+  round(2)
+
+g_distri_nb_an_p_sta +
+  coord_cartesian(ylim = c(0, 500)) +
+  geom_vline(xintercept = nb_moy_annees, col = "darkgreen", linetype = "dashed") +
+  labs(x = paste0("Nombre d'années de données par station (moyenne = ", nb_moy_annees, ")"),
+       y = "Nombre de stations")
+```
+
+En moyenne, chacune des `r captures %>% pull(sta_id) %>% n_distinct` stations a été prospecté `r nb_moy_annees` années.

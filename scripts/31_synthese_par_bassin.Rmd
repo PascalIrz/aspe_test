@@ -1,0 +1,217 @@
+---
+title: "ASPE - Richesse par bassin"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Chargement des packages
+
+```{r}
+library(aspe)
+library(tod)
+library(tidyverse)
+```
+
+# Principe
+
+Pour calculer les richesses par bassin au fil du temps, on doit procéder par étapes :
+
+- obtention du découpage des bassins, à l'échelle appropriée
+- positionnement des stations pour les affecter aux bassins 
+- calcul de la richesse à chaque pêche
+- agrégation des pêches par année et bassin
+
+# Découpage géographique en bassins
+
+## Téléchargement de la couche des bassins
+
+Le découpage des bassins au sens de la DCE est téléchargeable depuis [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/bassins-dce/), au format GeoJSON ou [shapefile](https://www.data.gouv.fr/fr/datasets/r/7c3a45a7-518a-4415-80aa-c59e427592c5).
+
+Un découpage plus fin est disponible sur la page [Zones hydrographiques - Métropole 2016 - BD Carthage](https://geo.data.gouv.fr/fr/datasets/f467f445570db14819bdb0058d4038f44f54b77f) du portail [geo.data.gouv.fr](https://geo.data.gouv.fr) et télécharger le shapefile à [cette URL](Zones hydrographiques - Métropole 2016 - BD Carthage). La fonction `sie_carthage_bassins_tod()` du package `{tod}` permettent d'enchaîner le téléchargement, la décompression et la lecture de la couche shapefile proposée. Par défaut l'archive zip et les fichiers décompressés sont stockés dans un sous-répertoire `"raw_data"` qui est créé s'il ne pré-existe pas. 
+
+```{r, eval = FALSE}
+bv <- tod::sie_carthage_bassins_tod(repertoire = "raw_data")
+```
+
+```{r, echo = FALSE}
+load(file = "../processed_data/bv.RData")
+```
+
+La taille de l'objet créé est importante car le niveau de découpage est fin (`r nrow(bv)` polygones) et le tracé est précis.
+
+```{r}
+object.size(bv) %>% format(units = "auto")
+```
+
+Si l'on veut sauvegarder les bassins :
+
+```{r, eval = FALSE}
+save(bv, file = "processed_data/bv.RData")
+```
+
+## Simplification de l'objet
+
+Pour des besoins plus "macro" et pour que chaque entité géographique comprenne plusieurs stations d'échantillonnage, on peut regrouper les entités. Ensuite, pour la plupart des usages on peut simplifier la géométrie des bassins. La fonction `sie_carthage_bassins_agr()` du package `{tod}` conserve la topologie (gestion des limites communes entre polygones pour éviter de créer des interstices ou des chevauchements) en diminuant le nombre de points (ici de 99%).
+
+```{r}
+bv_simp <- bv %>% 
+  tod::sie_carthage_bassins_agr(echelle = "Secteur_Hydro",
+                                prop_pts_a_garder = 0.01)
+```
+
+Les contours des bassins ainsi simplifiés pèsent `r object.size(bv_simp) %>% format(units = "auto")`, ce qui est beaucoup plus raisonnable. On peut les visualiser avec le package `ggplot2`.
+
+```{r}
+ggplot(bv_simp) + geom_sf()
+```
+
+
+# Inventaires piscicoles
+
+## Chargement des données
+
+Les données ont été préalablement préparées comme détaillé [ici](https://rpubs.com/kamoke/753323).
+
+```{r, echo = FALSE}
+load(file = "../processed_data/captures_geo.RData")
+```
+
+```{r, eval = FALSE}
+load(file = "processed_data/captures_geo.RData")
+```
+Pour effectuer la jointure entre les bassins et les stations, il faut que les deux soient dans un même système de coordonnées (CRS) donc on reprojette les bassins (qui sont en Lambert 93) en WGS84 dont l'identifiant est `4326`.
+
+```{r}
+bv <- bv %>% 
+  sf::st_transform(crs = 4326)
+```
+
+## Croisement géographique
+
+On attribue à chaque donnée (en fait à chaque lot de poissons) le bassin d'appartenance de son point, puis on restreint à la France continentale. 
+
+```{r}
+captures_geo <- captures_geo %>% 
+  sf::st_join(bv) %>% 
+  filter(!(CdSecteurH %in% c('Y7', 'Y8', 'Y9'))) %>% #• suppression Corse
+  filter(!is.na(gid)) # suppression des points sans bv
+```
+
+# Richesse par bassin
+
+## Agrégation par Secteur Hydro
+
+On agrège, **toutes années confondues**.
+
+La fonction `geo_aggr_richesse()` permet de choisir l'échelle spatiale d'agrégation.
+
+>NB Pour l'utiliser, il fait que les deux objets géographiques aient un ou plusieurs noms de variables en commun pour effectuer une jointure.
+
+```{r}
+richesse_par_secteur_hydro <- geo_aggr_richesse(ope_geo_data = captures_geo,
+                                                echelle = "Secteur_Hydro",
+                                                bassin_geo_poly = bv_simp)
+```
+
+Préalablement à la représentation cartographique, on définit une palette de couleurs et on renomme certaines variables pour que les `popups` soient intelligibles.
+
+```{r}
+pal <- RColorBrewer::brewer.pal(20, "OrRd")
+
+map_data <- richesse_par_secteur_hydro %>%
+  rename(
+    "Secteur Hydro" = LbSecteurH,
+    "Richesse" = richesse,
+    "Nombre de pêches" = nb_ope
+  )
+```
+
+On produit la carte dynamique des richesses par bassin au moyen de la fonction `mapview()` du package du même nom.
+
+```{r}
+mapview::mapview(
+  map_data,
+  zcol = "Richesse",
+  col.regions = pal,
+  layer.name = "Richesse",
+  popup = leafpop::popupTable(
+    map_data,
+    zcol = c("Secteur Hydro", "Richesse", "Nombre de pêches"),
+    feature.id = FALSE,
+    row.numbers = FALSE
+  )
+)
+```
+
+
+## Lien entre richesse et effort de prospection ?
+
+Pour savoir s'il y a un effet de l'effort de prospection sur la richesse détectée, on peut représenter la richesse en fonction du nombre d'opérations. **Un point représente un bassin**.
+
+```{r}
+ggplot(data = richesse_par_secteur_hydro,
+       aes(x = nb_ope, y = richesse)) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = "Nombre de pêches réalisées dans le bassin",
+       y = "Richesse du bassin")
+```
+
+
+```{r, echo = FALSE}
+mod <- lm(richesse ~ log(nb_ope, 10), data = richesse_par_secteur_hydro)
+
+r2 <- (100 * summary(mod)$adj.r.squared) %>%
+  round()
+```
+
+
+>Là on est fixé ! Le nombre d'opérations dans les bassins explique `r #r2`% de la variabilité des richesses. Ca interroge sur la représentation cartographique et son interprétabilité.
+
+# Approche temporelle
+
+## Richesse moyenne par opération
+
+On charge les données de richesse par opération.
+
+```{r, echo = FALSE}
+load(file = "../processed_data/richesse_par_ope.RData")
+```
+
+```{r, eval = FALSE}
+load(file = "processed_data/richesse_par_ope.RData")
+```
+
+Puis on moyenne par année. Pour le graphique en barres d'erreur, on ca
+
+```{r}
+richesse_moy_point_an <- richesse_par_ope %>%
+  group_by(annee) %>%
+    summarise(richesse_moy = mean(richesse_ope),
+              richesse_et = sd(richesse_ope),
+              richesse_ic = sd(richesse_ope) / sqrt(n()))
+```
+
+Les barres représentent l'intervalle de confiance sur la moyenne. Les années antérieures à 1979 sont exclues car la couverture est insuffisante.
+
+```{r}
+ggplot(data = richesse_moy_point_an %>%
+         filter(annee > 1978),
+       aes(x = annee,
+           y = richesse_moy,
+           ymax = richesse_moy + richesse_ic,
+           ymin = richesse_moy - richesse_ic)) +
+  geom_pointrange() +
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "", y = "Richesse moyenne par opération")
+```
+
+
