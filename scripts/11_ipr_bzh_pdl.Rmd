@@ -64,16 +64,12 @@ passerelle <- mef_creer_passerelle()
 names(passerelle)
 ```
 
-Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).
+Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune) au moyen de la fonction `mef_select_dept()`.
 
 
 ```{r}
-depts_bzh_pdl <- c(22, 29, 35, 56, 44, 53, 72, 49, 85)
-
-id_stations_bzh_pdl <- station %>%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>%
-  filter(sta_dept %in% depts_bzh_pdl) %>%
-  pull(sta_id)
+passerelle <- passerelle %>% 
+  mef_select_dept(dept = c(22, 29, 35, 56))
 ```
 
 >Le package {aspe} permet aussi effectuer une [sélection géographique](https://rpubs.com/kamoke/716322), par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
@@ -92,7 +88,6 @@ ref_objectif %>%
 
 ```{r}
 passerelle <- passerelle %>%
-  filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
   mef_select_obj(objectif = c(3, 6, 4))
 ```
 

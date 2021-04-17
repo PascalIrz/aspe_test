@@ -2961,13 +2961,9 @@ load(file = &quot;processed_data/toutes_tables_aspe_sauf_mei.RData&quot;)</code>
 <pre class="r"><code>passerelle &lt;- mef_creer_passerelle()
 names(passerelle)</code></pre>
 <pre><code>## [1] &quot;sta_id&quot; &quot;pop_id&quot; &quot;ope_id&quot; &quot;obj_id&quot; &quot;pre_id&quot; &quot;lop_id&quot;</code></pre>
-<p>Comme cette table est assez importante (5572102 lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune).</p>
-<pre class="r"><code>depts_bzh_pdl &lt;- c(22, 29, 35, 56, 44, 53, 72, 49, 85)
-
-id_stations_bzh_pdl &lt;- station %&gt;%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %&gt;%
-  filter(sta_dept %in% depts_bzh_pdl) %&gt;%
-  pull(sta_id)</code></pre>
+<p>Comme cette table est assez importante (5572102 lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune) au moyen de la fonction <code>mef_select_dept()</code>.</p>
+<pre class="r"><code>passerelle &lt;- passerelle %&gt;% 
+  mef_select_dept(dept = c(22, 29, 35, 56))</code></pre>
 <blockquote>
 <p>Le package {aspe} permet aussi effectuer une <a href="https://rpubs.com/kamoke/716322">sélection géographique</a>, par exemple sur la base des contours d’un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l’intérieur).</p>
 </blockquote>
@@ -3052,7 +3048,6 @@ id_stations_bzh_pdl &lt;- station %&gt;%
 </tbody>
 </table>
 <pre class="r"><code>passerelle &lt;- passerelle %&gt;%
-  filter(sta_id %in% id_stations_bzh_pdl) %&gt;% # filtrage sur stations
   mef_select_obj(objectif = c(3, 6, 4))</code></pre>
 </div>
 </div>
@@ -3096,22 +3091,19 @@ names(data)</code></pre>
 ##  [7] &quot;opi_param_ds&quot;       &quot;opi_param_lar&quot;      &quot;opi_param_pent&quot;    
 ## [10] &quot;opi_param_prof&quot;     &quot;opi_param_alt&quot;      &quot;opi_param_tjuillet&quot;
 ## [13] &quot;opi_param_tjanvier&quot; &quot;opi_param_bassin&quot;   &quot;ANG&quot;               
-## [16] &quot;CHA&quot;                &quot;GAR&quot;                &quot;GOU&quot;               
-## [19] &quot;LOF&quot;                &quot;LPP&quot;                &quot;OCL&quot;               
-## [22] &quot;PER&quot;                &quot;PES&quot;                &quot;VAR&quot;               
-## [25] &quot;ABH&quot;                &quot;BOU&quot;                &quot;PCC&quot;               
-## [28] &quot;ROT&quot;                &quot;ABL&quot;                &quot;BRO&quot;               
-## [31] &quot;CHE&quot;                &quot;VAI&quot;                &quot;CCO&quot;               
-## [34] &quot;EPT&quot;                &quot;PCH&quot;                &quot;BRE&quot;               
-## [37] &quot;CMI&quot;                &quot;TAN&quot;                &quot;BRB&quot;               
-## [40] &quot;GRE&quot;                &quot;BBG&quot;                &quot;GAM&quot;               
-## [43] &quot;PSR&quot;                &quot;SAN&quot;                &quot;TRF&quot;               
-## [46] &quot;ASP&quot;                &quot;CAG&quot;                &quot;SIL&quot;               
-## [49] &quot;IDE&quot;                &quot;BAF&quot;                &quot;HOT&quot;               
-## [52] &quot;LOR&quot;                &quot;SPI&quot;                &quot;EPI&quot;               
-## [55] &quot;SAT&quot;                &quot;LPM&quot;                &quot;TRM&quot;               
-## [58] &quot;HYC&quot;                &quot;VAN&quot;                &quot;LPR&quot;               
-## [61] &quot;PFL&quot;                &quot;FLE&quot;</code></pre>
+## [16] &quot;CHA&quot;                &quot;CHE&quot;                &quot;EPT&quot;               
+## [19] &quot;GOU&quot;                &quot;LOF&quot;                &quot;LPP&quot;               
+## [22] &quot;ROT&quot;                &quot;VAI&quot;                &quot;BRO&quot;               
+## [25] &quot;OCL&quot;                &quot;PER&quot;                &quot;PES&quot;               
+## [28] &quot;TAN&quot;                &quot;ABL&quot;                &quot;BBG&quot;               
+## [31] &quot;BRB&quot;                &quot;BRE&quot;                &quot;CCO&quot;               
+## [34] &quot;GAR&quot;                &quot;GRE&quot;                &quot;PCC&quot;               
+## [37] &quot;PSR&quot;                &quot;SAN&quot;                &quot;VAR&quot;               
+## [40] &quot;TRF&quot;                &quot;EPI&quot;                &quot;SAT&quot;               
+## [43] &quot;LPM&quot;                &quot;TRM&quot;                &quot;HYC&quot;               
+## [46] &quot;PCH&quot;                &quot;ABH&quot;                &quot;VAN&quot;               
+## [49] &quot;SPI&quot;                &quot;FLE&quot;                &quot;BOU&quot;               
+## [52] &quot;CAG&quot;</code></pre>
 <p>Seconde étape : Sélection et renommage des variables.</p>
 <pre class="r"><code>data &lt;- ipr_renommer_pour_macro(data = data, fichier_macro = &quot;raw_data/MacroIPR_Sortie.xlsx&quot;)
 names(data)</code></pre>
