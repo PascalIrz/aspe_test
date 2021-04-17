@@ -80,25 +80,20 @@ id_stations_bzh_pdl <- station %>%
 
 On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP.
 
-```{r}
-reseaux_select <- c('RCS – Réseau de Contrôle de Surveillance',
-                    'RHP – Réseau Hydrobiologique Piscicole',
-                    'RRP – Réseau de Référence Pérenne')
+Les identifiants correspondant à chacun des réseaux se trouvent dans le champ `obj_id` de la table `ref_objectif`.
 
-id_reseaux <- ref_objectif %>%
-  filter(obj_libelle %in% reseaux_select) %>%
-  pull(obj_id)
+```{r}
+ref_objectif %>% 
+  select(obj_id, obj_libelle) %>% 
+  arrange(obj_id) %>% 
+  knitr::kable(align = c('c', 'l'))
 ```
 
-
-Maintenant qu'on a les identifiants des réseaux et des stations qui nous intéressent, filtrons la passerelle à partir des vecteurs `id_reseaux` et `id_stations_bzh_pdl`.
 
 ```{r}
 passerelle <- passerelle %>%
   filter(sta_id %in% id_stations_bzh_pdl) %>% # filtrage sur stations
-  filter(obj_id %in% id_reseaux) %>% # filtrage sur réseaux
-  select(-obj_id) %>% # suppression de cette colonne désormais inutile
-  distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux
+  mef_select_obj(objectif = c(3, 6, 4))
 ```
 
 # Bilan des IPR par station

@@ -2919,7 +2919,7 @@ pre code {
 
 <h1 class="title toc-ignore">ASPE - Traitements sur les IPR</h1>
 <h4 class="author">Pascal Irz</h4>
-<h4 class="date">Le 09 avril 2021</h4>
+<h4 class="date">Le 17 avril 2021</h4>
 
 </div>
 
@@ -2972,19 +2972,88 @@ id_stations_bzh_pdl &lt;- station %&gt;%
 <p>Le package {aspe} permet aussi effectuer une <a href="https://rpubs.com/kamoke/716322">sélection géographique</a>, par exemple sur la base des contours d’un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l’intérieur).</p>
 </blockquote>
 <p>On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP.</p>
-<pre class="r"><code>reseaux_select &lt;- c(&#39;RCS – Réseau de Contrôle de Surveillance&#39;,
-                    &#39;RHP – Réseau Hydrobiologique Piscicole&#39;,
-                    &#39;RRP – Réseau de Référence Pérenne&#39;)
-
-id_reseaux &lt;- ref_objectif %&gt;%
-  filter(obj_libelle %in% reseaux_select) %&gt;%
-  pull(obj_id)</code></pre>
-<p>Maintenant qu’on a les identifiants des réseaux et des stations qui nous intéressent, filtrons la passerelle à partir des vecteurs <code>id_reseaux</code> et <code>id_stations_bzh_pdl</code>.</p>
+<p>Les identifiants correspondant à chacun des réseaux se trouvent dans le champ <code>obj_id</code> de la table <code>ref_objectif</code>.</p>
+<pre class="r"><code>ref_objectif %&gt;% 
+  select(obj_id, obj_libelle) %&gt;% 
+  arrange(obj_id) %&gt;% 
+  knitr::kable(align = c(&#39;c&#39;, &#39;l&#39;))</code></pre>
+<table>
+<colgroup>
+<col width="7%" />
+<col width="92%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">obj_id</th>
+<th align="left">obj_libelle</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">1</td>
+<td align="left">Sauvetage - Transfert</td>
+</tr>
+<tr class="even">
+<td align="center">2</td>
+<td align="left">DCE – Référence</td>
+</tr>
+<tr class="odd">
+<td align="center">3</td>
+<td align="left">RCS – Réseau de Contrôle de Surveillance</td>
+</tr>
+<tr class="even">
+<td align="center">4</td>
+<td align="left">RRP – Réseau de Référence Pérenne</td>
+</tr>
+<tr class="odd">
+<td align="center">5</td>
+<td align="left">CO – Contrôle opérationnel</td>
+</tr>
+<tr class="even">
+<td align="center">6</td>
+<td align="left">RHP – Réseau Hydrobiologique Piscicole</td>
+</tr>
+<tr class="odd">
+<td align="center">7</td>
+<td align="left">RNB – Réseau National de Bassin</td>
+</tr>
+<tr class="even">
+<td align="center">8</td>
+<td align="left">RNSORMCE – Réseau National de Suivi des Opérations de Restauration hydroMorphologiques des Cours d’Eau</td>
+</tr>
+<tr class="odd">
+<td align="center">9</td>
+<td align="left">Suivi des populations d’anguilles</td>
+</tr>
+<tr class="even">
+<td align="center">10</td>
+<td align="left">Suivi des populations de saumons</td>
+</tr>
+<tr class="odd">
+<td align="center">11</td>
+<td align="left">Suivi des populations de truites</td>
+</tr>
+<tr class="even">
+<td align="center">12</td>
+<td align="left">Étude</td>
+</tr>
+<tr class="odd">
+<td align="center">13</td>
+<td align="left">Suivi des cours d’eau intermittents</td>
+</tr>
+<tr class="even">
+<td align="center">14</td>
+<td align="left">Suivi de restauration</td>
+</tr>
+<tr class="odd">
+<td align="center">15</td>
+<td align="left">RCA - Réseau de contrôle additionnel</td>
+</tr>
+</tbody>
+</table>
 <pre class="r"><code>passerelle &lt;- passerelle %&gt;%
   filter(sta_id %in% id_stations_bzh_pdl) %&gt;% # filtrage sur stations
-  filter(obj_id %in% id_reseaux) %&gt;% # filtrage sur réseaux
-  select(-obj_id) %&gt;% # suppression de cette colonne désormais inutile
-  distinct() # nécessaire car une opération peut être rattachée à plusieurs réseaux</code></pre>
+  mef_select_obj(objectif = c(3, 6, 4))</code></pre>
 </div>
 </div>
 <div id="bilan-des-ipr-par-station" class="section level1">
