@@ -173,7 +173,7 @@ r2 <- (100 * summary(mod)$adj.r.squared) %>%
 ```
 
 
->Là on est fixé ! Le nombre d'opérations dans les bassins explique `r #r2`% de la variabilité des richesses. Ca interroge sur la représentation cartographique et son interprétabilité.
+>Là on est fixé ! Le nombre d'opérations dans les bassins explique `r r2`% de la variabilité des richesses, ce qui interroge sur la représentation cartographique et son interprétabilité.
 
 # Approche temporelle
 
