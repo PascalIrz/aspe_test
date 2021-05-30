@@ -113,7 +113,7 @@ station <- station %>%
 
 ### Reprojection et extraction des coordonnées des stations en WGS84
 
->ATTENTION, cette opération prend une dizaine de minutes environ.
+On emploie la fonction `geo_convertir_coords_df()`.
 
 ```{r, eval = TRUE}
 coords_wgs84 <- geo_convertir_coords_df(df = station,
@@ -122,16 +122,6 @@ coords_wgs84 <- geo_convertir_coords_df(df = station,
                                         var_crs_initial = "typ_code_epsg",
                                         crs_sortie = 4326) %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
-```
-
-Comme la reprojection est une opération chronophage, il est intéressant d'en sauvegarder le résultat.
-
-```{r, eval = FALSE}
-# save(coords_wgs84, file = "processed_data/sta_coords_wgs84.RData")
-```
-
-```{r, echo = FALSE}
-#load(file = "../processed_data/sta_coords_wgs84.RData")
 ```
 
 Ajout des coordonnées WGS84 et suppression des colonnes qui ne serviront plus :
