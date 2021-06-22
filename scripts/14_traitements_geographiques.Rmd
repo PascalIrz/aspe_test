@@ -193,7 +193,8 @@ region <- tod::osm_creer_polygone_region(departements_sf = depts,
 La fonction `st_join()` du package {sf} permet de sélectionner l'intersection entre le polygone de la région et les points des stations.
 
 ```{r}
-station_bzh <- sf::st_join(station_geo, region) %>%
+station_bzh <- station_geo %>% 
+  sf::st_join(region) %>%
   filter(!is.na(region))
 ```
 

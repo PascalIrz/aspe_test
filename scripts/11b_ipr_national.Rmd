@@ -96,14 +96,11 @@ passerelle <- passerelle %>%
 On va utiliser la passerelle pour assurer le lien entre des informations contenues dans différentes tables.
 
 ```{r}
-ipr <- mef_ajouter_ipr(passerelle) %>% 
-  mef_ajouter_ope_date() %>% 
-  filter(ope_date > lubridate::dmy("01/01/2010"),
-         ope_date < lubridate::dmy("31/12/2020")) %>% 
-  left_join(station %>% select(sta_id, dept = sta_com_code_insee)) %>% 
-  mutate(dept = str_sub(dept, 1, 2)) %>% 
-    mef_ajouter_libelle() %>% 
-  droplevels()
+date_debut <- '01-01-2010'
+
+ipr <- ipr_extraire(passerelle = passerelle,
+                    date_debut = '01/01/2010',
+                    date_fin = '31/12/2020')
 ```
 
 Les premières lignes de ce tableau sont les suivantes :
@@ -115,7 +112,8 @@ ipr %>% head() %>% DT::datatable()
 Si l'on veut les mêmes données mais avec une colonne par année :
 
 ```{r}
-ipr_1c_par_an <- ipr_pivoter_1colonne_par_an(ipr_df = ipr)
+ipr_1c_par_an <- ipr_pivoter_1colonne_par_an(ipr_df = ipr) %>% 
+  select(-libelle_point)
 ```
 
 Les noms des colonnes sont alors :
@@ -174,7 +172,7 @@ write.csv2(data, "processed_data/aspe_format_macro.csv",
 Définition du département.
 
 ```{r, fig.width = 10, fig.height = 14}
-mon_dept <- '22'
+mon_dept <- '45'
 ```
 
 Création du sous-jeu de données filtré pour le graphique.
@@ -183,9 +181,7 @@ Création du sous-jeu de données filtré pour le graphique.
 ipr_dept <- ipr %>%
   filter(dept == mon_dept) %>% 
   mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
-  mef_filtrer_nb_mini_annees(nb_mini_annees = 5) %>% 
-  select(pop_libelle, pop_id, dept, annee, ope_id, ipr, cli_libelle) %>% 
-  distinct()
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 5)
 
 ipr_dept %>% head() %>% DT::datatable()
 ```
