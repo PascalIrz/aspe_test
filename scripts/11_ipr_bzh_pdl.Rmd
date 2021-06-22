@@ -19,17 +19,17 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 
 # Chargement des packages et des données
 
-```{r, eval = FALSE}
+```{r}
 library(aspe)
 library(tidyverse)
+```
 
+
+```{r, eval = FALSE}
 load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
-```{r, eval = TRUE, echo = FALSE}
-library(aspe)
-library(tidyverse)
-
+```{r, echo = FALSE}
 load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
@@ -96,7 +96,8 @@ passerelle <- passerelle %>%
 On va utiliser la passerelle pour assurer le lien entre des informations contenues dans différentes tables.
 
 ```{r}
-ipr <- mef_ajouter_ipr(passerelle) %>% 
+ipr <- passerelle %>% 
+  mef_ajouter_ipr() %>% 
   mef_ajouter_ope_date() %>% 
   filter(ope_date > lubridate::dmy("01/01/2010"),
          ope_date < lubridate::dmy("31/12/2020")) %>% 
@@ -141,20 +142,22 @@ Les notes IPR présentes dans la table `operation_ipr` de la base ASPE sont calc
 Première étape : structuration du tableau.
 
 ```{r, eval = TRUE}
-data <- ipr_formater_pour_macro(passerelle = passerelle,
-                            date_debut = '01/01/2020')
+data <- passerelle %>% 
+  ipr_formater_pour_macro(date_debut = '01/01/2020')
 names(data)
 ```
 
 Seconde étape : Sélection et renommage des variables.
 
 ```{r, eval = FALSE, echo = TRUE}
-data <- ipr_renommer_pour_macro(data = data, fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
+data <- data %>% 
+  ipr_renommer_pour_macro(fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
 names(data)
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
-data <- ipr_renommer_pour_macro(data = data, fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
+data <- data %>% 
+  ipr_renommer_pour_macro(fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
 names(data)
 ```
 
@@ -337,7 +340,7 @@ ipr_metriques <- passerelle %>%
   mef_ajouter_ope_date() %>% # ajout date et année
   mef_filtrer_sta_annee(premiere_annee = 2010) %>% # filtrage sur l'année
   filter(ope_id %in% mes_operations) %>% # filtrage sur les identifiants d'opérations ope_id
-  ipr_extraire_metriques() # ajout des métriques
+  mef_ajouter_metriques() # ajout des métriques
 ```
 
 Les noms des colonnes du tableau sont les suivants :
@@ -351,33 +354,47 @@ names(ipr_metriques)
 .
 .
 
-## Représentations graphiques sur une station
+## Représentations graphiques sur un point
 
 ### Préparation des éléments nécessaires
 
-**Identifiant de station**
+#### Mise en forme du tableau
 
-Il n'est pas entre guillements car cle champ `sta_id` est numérique dans les tables.
+La représentation graphique en radar va faire appel au *package* `{fmsb}` qui nécessite une mise en forme assez spécifique des données.
 
 ```{r}
-mon_id_station <- 10708
+library(fmsb)
 ```
 
-Création d'un extrait du `dataframe` général avec uniquement notre station.
+Choix du point.
 
 ```{r}
-data_sta <- ipr_metriques %>%
-  filter(sta_id == mon_id_station) %>% 
-  mutate(annee_car = as.character(annee)) %>% 
-  column_to_rownames(var = "annee_car")
+mon_pop <- 41964
 ```
 
-**Titre du graphique**
 
 ```{r}
-mon_titre <- data_sta %>% 
-  slice(1) %>% 
-  pull(sta_libelle_sandre)
+pop_data <- ipr_metriques %>% 
+  mef_ajouter_libelle() %>% 
+  select(sta_id, pop_id, pop_libelle, annee, (ner:dti)) %>%
+  distinct() %>% # pour éviter les doublons sur l'année qui sert de nom de lignes donc ne pê dupliquée
+  mef_ipr_radar(pop_id = mon_pop)
+```
+
+Le tableau mis en forme ne contient comme colonnes que les métriques. Les lignes ont été nommées d'après les années. Deux lignes ont été insérées en haut du tableau, qui servent à préciser les bornes (mini et maxi) pour chacune des métriques. Avec la fonction `ipr_mef_radar()` le mini est fixé à zéro et le maxi est la valeur la plus élevée de l'ensemble des métriques pour l'ensemble des années.
+
+```{r}
+knitr::kable(pop_data, row.names = TRUE)
+```
+
+Titre du graphique
+
+```{r}
+mon_titre <- ipr_metriques %>% 
+  mef_ajouter_libelle() %>% 
+  filter(pop_id == mon_pop) %>% 
+  slice(1) %>%
+  pull(pop_libelle)
 ```
 
 **Palette de couleur**
@@ -389,7 +406,7 @@ Le *package* `{RColorBrewer}` propose des palettes de couleurs "standard" contra
 Ici nous utilisons la palette dégradée allant du rouge au bleu via le jaune `"RdYlBu"`. Il faut une couleur par contour (= par année représentée) donc autant de couleurs que d'années.
 
 ```{r}
-nb_annees <- nrow(data_sta)
+nb_annees <- nrow(pop_data)
 
 # Vecteurs des couleurs de ligne
 couleurs_traits <- RColorBrewer::brewer.pal(n = nb_annees, name = "RdYlBu")
@@ -403,24 +420,8 @@ couleurs_remplissage <- couleurs_traits %>%
   GISTools::add.alpha(alpha = 0.1)
 ```
 
-### Mise en forme du tableau
 
-La représentation graphique en radar va faire appel au *package* `{fmsb}` qui nécessite une mise en forme assez spécifique des données.
-
-```{r}
-data_sta <- ipr_mef_radar (metriques_df = ipr_metriques,
-                station_id = 10708)
-
-library(fmsb)
-```
-
-Le tableau mis en forme ne contient comme colonnes que les métriques. Les lignes ont été nommées d'après les années. Deux lignes ont été insérées en haut du tableau, qui servent à préciser les bornes (mini et maxi) pour chacune des métriques. Avec la fonction `ipr_mef_radar()` le mini est fixé à zéro et le maxi est la valeur la plus élevée de l'ensemble des métriques pour l'ensemble des années.
-
-```{r}
-knitr::kable(data_sta, row.names = TRUE)
-```
-
-### Graphique en radar
+### Graphique radar
 
 Le graphique est produit par la fonction `radarchart` du package `fmsb` qui admet de très nombreux arguments permettant de personnaliser l'aspect des axes et de leurs graduations, des étiquettes, etc. Pour avoir accéder à l'aide de la fonction :
 
@@ -433,7 +434,7 @@ Malheureusement cette aide est très sommaire et manque d'exemples.
 
 ```{r, fig.height = 8, fig.width = 6.5}
 
-radarchart(data_sta,
+radarchart(pop_data,
            axistype = 2, 
            #custom polygon
            pcol = couleurs_traits, pfcol = couleurs_remplissage, plwd = 4, plty = 1,
@@ -444,7 +445,7 @@ radarchart(data_sta,
            title = mon_titre)
 
 legend(x = 0.7, y = 1.55,
-       legend = rownames(data_sta[-c(1,2),]),
+       legend = rownames(pop_data[-c(1,2),]),
        bty = "n", pch = 20 ,
        col = couleurs_traits,
        text.col = "grey80", cex = 1.2, pt.cex = 3)
@@ -453,13 +454,13 @@ legend(x = 0.7, y = 1.55,
 **Diagramme en bâtons**
 
 ```{r}
-data_sta2 <- data_sta %>% 
+pop_data <- pop_data %>% 
   slice(-(1:2)) %>% 
   rownames_to_column(var = "annee") %>% 
   mutate(annee = as.integer(annee)) %>% 
   pivot_longer(cols = -annee, names_to = "metrique", values_to = "valeur")
 
-ggplot(data = data_sta2, aes(x = annee, y = valeur)) +
+ggplot(data = pop_data, aes(x = annee, y = valeur)) +
   geom_bar(stat = "identity", fill = couleurs_traits[1]) +
   labs(x = "", y = "Valeur de la métrique", title = mon_titre) +
   facet_wrap(~metrique)
