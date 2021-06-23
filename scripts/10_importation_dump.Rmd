@@ -72,7 +72,7 @@ On importe la totalité de la base en une fois, ce qui est bien pratique. Dans l
 Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'onglet "Environnement" de RStudio.
 
 ```{r, eval = FALSE}
-imp_importer_dump_sql(fichier_dump = "raw_data/aspe.sql")
+imp_importer_dump_sql(fichier_dump = "../raw_data/aspe_20210622.gz")
 ```
 
 L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :

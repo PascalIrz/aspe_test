@@ -373,10 +373,10 @@ Application de la fonction `qtp_calcul()` aux espèces sélectionnées.
 tp <- qtp_calcul(df = tp_data,
                  especes = mes_especes)
 sp <- tp %>% 
-  pull(code_espece)
+  pull(esp_code_alternatif)
 
 tp <- tp %>% 
-  select(-code_espece) %>% 
+  select(-esp_code_alternatif) %>% 
   mutate_all(as.numeric)
 
 tp <- cbind(sp, tp) %>% 
