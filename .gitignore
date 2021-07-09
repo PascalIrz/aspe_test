@@ -6,4 +6,5 @@
 /raw_data
 /processed_data
 /scripts/rsconnect
+/scripts/*.html
 .Rproj.user
