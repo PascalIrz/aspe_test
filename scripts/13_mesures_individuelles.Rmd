@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 # Objectif
@@ -84,23 +84,18 @@ Il s'agit de compléter le jeu de données, qui ne contient à ce stade que des 
 
 ```{r}
 data_ind <- data %>%
-    left_join(y = station %>%
-                      select(sta_id, sta_libelle_sandre)) %>% 
-    left_join(y = operation %>% 
-                      select(ope_id, ope_date)) %>% 
-    left_join(y = lot_poissons %>%
-                      select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>% 
-    left_join(y = ref_espece %>%
-                      select(esp_id, esp_code_alternatif)) %>% 
-    left_join(y = mesure_individuelle %>%
-                      rename(lop_id = mei_lop_id, tlo_id = mei_tlo_id)) %>%
-    left_join(y = ref_type_longueur %>% 
-                      select(tlo_id, tlo_libelle)) %>% 
-    mutate(ope_date = lubridate::ymd_hms(ope_date),
-           ope_date = lubridate::floor_date(ope_date, unit = "day")) %>% 
-    select(-obj_id, -mei_id, -tlo_id) # suppression colonnes inutiles
-
+  mef_ajouter_libelle() %>% 
+  mef_ajouter_ope_date() %>% 
+  mef_ajouter_passage() %>% # numéro du passage pour éventuellement filtrer dessus
+  mef_ajouter_lots() %>% 
+  mef_ajouter_esp_code_alternatif() %>% 
+  mef_ajouter_mei() %>% 
+  mef_ajouter_type_longueur() %>% 
+  select(-obj_id,
+         -mei_id,
+         -tlo_id) # suppression colonnes inutiles
 ```
+
 Blabla exliquer la signification des champs.
 
 ## Histogramme des longueurs pour une espèce à l'occasion d'une opération.
@@ -114,11 +109,11 @@ La fonction `grapher_histo_longueur()` sert à produire l'histogramme des longue
 - Le nombre d'intervalles de longueur sur le graphique, qui est de 30 par défaut.
 
 ```{r}
-mei_grapher_histo_longueur(indiv_df = data_ind,
-                           operation = 6313,
-                           especes = "GOU",
-                           type_longueur = "Fourche",
-                           n_intervalles = 25)
+gg_histo_longueur(indiv_df = data_ind,
+                  operation = 6313,
+                  especes = "GOU",
+                  type_longueur = "Fourche",
+                  n_intervalles = 25)
 ```
 
 
