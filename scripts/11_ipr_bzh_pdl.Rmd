@@ -101,7 +101,8 @@ ipr <- passerelle %>%
   mef_ajouter_ope_date() %>% 
   filter(ope_date > lubridate::dmy("01/01/2010"),
          ope_date < lubridate::dmy("31/12/2020")) %>% 
-  left_join(station %>% select(sta_id, dept = sta_com_code_insee)) %>% 
+  left_join(station %>%
+              select(sta_id, dept = sta_com_code_insee)) %>% 
   mutate(dept = str_sub(dept, 1, 2)) %>% 
     mef_ajouter_libelle() %>% 
   droplevels()
