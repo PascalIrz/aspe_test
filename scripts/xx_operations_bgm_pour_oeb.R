@@ -59,4 +59,6 @@ ope_bgm <- ope_simp %>%
   )) %>%
   filter(bgm)
 
+## résultat : zéro opérations à partir du dump du 22/06/21
+
 
