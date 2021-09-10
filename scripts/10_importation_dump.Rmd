@@ -71,8 +71,8 @@ On importe la totalité de la base en une fois, ce qui est bien pratique. Dans l
 
 Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'onglet "Environnement" de RStudio.
 
-```{r, eval = FALSE}
-imp_importer_dump_sql(fichier_dump = "../raw_data/aspe_20210622.gz")
+```{r, eval = TRUE}
+imp_importer_dump_sql(fichier_dump = "../raw_data/aspe_20210908.sql.gz")
 ```
 
 L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
@@ -81,10 +81,10 @@ L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui 
 
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite. Comme la table `mesure_individuelle` pèse à elle seule la moitié du volume de la base, on choisit de la conserver dans un fichier à part.
 
-```{r, eval = FALSE}
-save(mesure_individuelle, file = "processed_data/mei.RData")
+```{r, eval = TRUE}
+save(mesure_individuelle, file = "../processed_data/mei.RData")
 rm(mesure_individuelle)
-save.image(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+save.image(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
 ```
 
 >NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
@@ -149,9 +149,10 @@ Comme cet import est un peu long, il y a intérêt à en sauvegarder le résulta
 
 ![](../assets/message_erreur_import.png)
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 rm(lignes_autres_tables)
 save.image(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+save(mei, file = "processed_data/mei.RData")
 ```
 
 Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package {gdata}, à installer si besoin.
