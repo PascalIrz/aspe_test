@@ -5,7 +5,7 @@ library(tidyverse)
 library(aspe)
 
 # Chargement des données
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
 
 # recherche des champs, ttes tables comprises, identifiant les intervenants et utilisateurs
 expl_trouver_variable("int_id")
