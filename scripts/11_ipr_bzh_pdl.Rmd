@@ -26,11 +26,11 @@ library(tidyverse)
 
 
 ```{r, eval = FALSE}
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
 ```
 
 ```{r, echo = FALSE}
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
 ```
 
 # Grandes lignes de l'analyse
@@ -88,7 +88,7 @@ ref_objectif %>%
 
 ```{r}
 passerelle <- passerelle %>%
-  mef_select_obj(objectif = c(3, 6, 4))
+  mef_select_objectif(objectif = c(3, 6, 4))
 ```
 
 # Bilan des IPR par station
@@ -102,9 +102,10 @@ ipr <- passerelle %>%
   filter(ope_date > lubridate::dmy("01/01/2010"),
          ope_date < lubridate::dmy("31/12/2020")) %>% 
   left_join(station %>%
-              select(sta_id, dept = sta_com_code_insee)) %>% 
+              select(sta_id,
+                     dept = sta_com_code_insee)) %>% 
   mutate(dept = str_sub(dept, 1, 2)) %>% 
-    mef_ajouter_libelle() %>% 
+  mef_ajouter_libelle() %>% 
   droplevels()
 ```
 
@@ -185,13 +186,22 @@ Création du sous-jeu de données filtré pour le graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
 ipr_dept <- ipr %>%
-  filter(dept == mon_dept) %>% 
-  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
-  mef_filtrer_nb_mini_annees(nb_mini_annees = 5) %>% 
-  select(pop_libelle, pop_id, dept, annee, ope_id, ipr, cli_libelle) %>% 
+  filter(dept == mon_dept,   # filtrage sur le département
+         annee > 2009) %>%   # filtrage sur la date
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 5, # suppression des points avec moins de 5 années
+                             var_id = "pop_id") %>% 
+  select(pop_libelle,
+         pop_id,
+         dept,
+         annee,
+         ope_id,
+         ipr,
+         cli_libelle) %>% 
   distinct()
 
-ipr_dept %>% head() %>% DT::datatable()
+ipr_dept %>%
+  head() %>%
+  DT::datatable()
 ```
 
 Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
@@ -254,9 +264,10 @@ Filtrage du jeu de données aux départements concernés, à partir de 2010 et e
 
 ```{r}
 data <- ipr %>%
-  filter(dept %in% mes_depts) %>% 
-  mef_filtrer_sta_annee(premiere_annee = 2010) %>% 
-  mef_filtrer_nb_mini_annees(nb_mini_annees = 5)
+  filter(dept %in% mes_depts,
+         annee > 2009) %>% 
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 5,
+                             var_id = "pop_id")
 ```
 
 On scinde le tableau pour en avoir un par département. L'objet `data_par_dept` est une liste contenant un `dataframe` par département.
@@ -339,8 +350,8 @@ ipr_metriques <- passerelle %>%
   select(-pre_id, -lop_id) %>% # variables inutiles
   distinct() %>% # suppression des lignes dupliquées
   mef_ajouter_ope_date() %>% # ajout date et année
-  mef_filtrer_sta_annee(premiere_annee = 2010) %>% # filtrage sur l'année
-  filter(ope_id %in% mes_operations) %>% # filtrage sur les identifiants d'opérations ope_id
+#  mef_filtrer_sta_annee(premiere_annee = 2010) %>% # filtrage sur l'année
+  filter(ope_id %in% mes_operations, annee > 2009) %>% # filtrage sur les identifiants d'opérations ope_id et année
   mef_ajouter_metriques() # ajout des métriques
 ```
 

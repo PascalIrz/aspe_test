@@ -3,8 +3,8 @@
 *.RData
 *.Ruserdata
 *.html
-/raw_data
-/processed_data
+/raw_data/
+/processed_data/
 /scripts/rsconnect
 /scripts/*.html
 .Rproj.user

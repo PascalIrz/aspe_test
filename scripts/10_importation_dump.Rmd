@@ -14,9 +14,11 @@ knitr::opts_chunk$set(
 
 # Objet de la présentation
 
-Le présent document vise à présenter comment importer les tables de la base ASPE sous la forme de `dataframe` R. Par la suite, il sera complété d'autres tutos sur l'utilisation des tables.
+Le présent document vise à présenter comment importer les tables de la base ASPE sous la forme de `dataframe` R. Il est accompagné d'autres tutos sur l'utilisation des tables, rassemblés sur le dépôt [https://rpubs.com/kamoke](https://rpubs.com/kamoke).
 
-Le point de départ est un `dump`, sauvegarde de la base qui est réalisée chaque nuit au BRGM qui héberge la base de production. Il est prévu qu'un de ces `dump` soit mis à disposition à fréquence hebdomadaire pour être téléchargeable par les utilisateurs.
+Le point de départ est un `dump`, sauvegarde de la base qui est réalisée chaque nuit au BRGM qui héberge la base de production.
+
+Fin 2022, la base devrait être accessible via une API sur [Hub'eau](https://hubeau.eaufrance.fr/).
 
 # Préparation du projet
 
@@ -69,15 +71,17 @@ library(tidyverse)
 
 On importe la totalité de la base en une fois, ce qui est bien pratique. Dans la logique de l'arborescence du projet, le fichier de données - ici préalablement décompressé - est stocké dans le répertoire `raw_data`.
 
-Cette opération prend une dizaine de minutes. Quand elle est terminée, des `Warning` sont affichés dans la console, mais pas d'erreurs. Une centaine de `dataframe` apparaissent dans l'onglet "Environnement" de RStudio.
-
 ```{r, eval = TRUE}
 imp_importer_dump_sql(fichier_dump = "../raw_data/aspe_20210908.sql.gz")
 ```
 
-L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
+Cette opération prend une dizaine de minutes. L'import peut produire des messages d'avertissement (`Warning`) de ce type, qui n'indiquent pas de problème :
 
 ![](../assets/message_erreur_import.png)
+
+Quand l'importation est terminée, une centaine de `dataframe` apparaissent dans l'onglet "Environnement" de RStudio.
+
+![](../assets/dataframes.png)
 
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite. Comme la table `mesure_individuelle` pèse à elle seule la moitié du volume de la base, on choisit de la conserver dans un fichier à part.
 
@@ -101,7 +105,7 @@ La première étape est de scinder le `dump` en deux parties qui seront stockée
 Ce découpage prend 5-10'.
 
 ```{r, eval = FALSE}
-imp_scinder_dump(fichier_dump = "raw_data/aspe.sql.gz")
+imp_scinder_dump(fichier_dump = "raw_data/aspe_20210908.sql.gz")
 ```
 
 >NB : Cette opération peut être bloquée si le chemin d'accès est trop long, ce qui retourne un message d'erreur :
@@ -145,17 +149,19 @@ imp_extraire_noms_tables(lignes_dump = lignes_autres_tables)
 imp_tables_a_partir_des_lignes(lignes_dump = lignes_autres_tables)
 ```
 
-Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`. L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
+L'import peut produire des messages d'avertissement (*Warning*) de ce type, qui n'indiquent pas de problème :
 
 ![](../assets/message_erreur_import.png)
 
-```{r, eval = TRUE}
-aspe::exp_tables_rdata()
+Comme cet import est un peu long, il y a intérêt à en sauvegarder le résultat dans le répertoire `processed_data`.
+
+Cette sauvegarde est réalisée au format `.RData` par la fonction `exp_tables_rdata()`. Comme la table `mesure_individuelle` pèse à elle seule plus de la moitié de la base, elle est sauvegardée à part, dans `mei_aaaa_mm_jj_hh_mm_ss.RData`, tandis que l'ensemble des autres tables sont regroupées  dans`tables_sauf_mei_aaaa_mm_jj_hh_mm_ss.RData`. Par défaut ces fichiers sont placés dans le sous-répertoire `processed_data` du répertoire de travail qui est créé s'il n'est pas pré-existant.
+
+```{r, eval = FALSE}
+aspe::export_tables_rdata()
 ```
 
-Cette sauvegarde est réalisée au format `.RData` par la fonction `exp_tables_rdata()`. Comme la table `mesure_individuelle` pèse à elle seule plus de la moitié de la base, elle est sauvegardée à part, dans `mei_aaaa_mm_jj_hh_mm_ss.RData`, tandis que l'ensemble des autres tables sont regroupées  dans`tables_sauf_mei_aaaa_mm_jj_hh_mm_ss.RData`. Par défaut ces fichiers sont placés dans le sous-répertoire `processed_data` du répertoire de travail qui est créé s'il n'est pas pré-existant. 
-
-Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package {gdata}, à installer si besoin.
+Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package `{gdata}`, à installer si besoin.
 
 ```{r, eval = FALSE}
 gdata::keep(operation, operation_description_peche, operation_donnees_environnementales, operation_ipr,
