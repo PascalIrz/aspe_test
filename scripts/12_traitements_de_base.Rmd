@@ -2,11 +2,15 @@
 title: "ASPE - Traitements de base à partir des lots"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
-output: html_document
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_float: true   
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 # Objectif
@@ -80,15 +84,10 @@ Outre le filtrage régional, dans l'exemple ci-dessous, on ne va retenir que les
 # vecteur avec les numéros de département
 depts_bzh <- c(22, 29, 35, 56)
 
-# vecteur avec les identifiants des stations de la région (sta_id)
-id_stations_bzh <- station %>%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
-  filter(sta_dept %in% depts_bzh) %>% # sélection des observations sur les numéros de dept
-  pull(sta_id) # extraction des identifiants des stations
-
 # filtrage de la passerelle sur les identifiants de stations retenus
 data <- passerelle %>% 
-  filter(sta_id %in% id_stations_bzh)
+  mef_ajouter_dept() %>% 
+  filter(dept %in% depts_bzh)
 ```
 
 ## Filtrage sur le moyen de pêche

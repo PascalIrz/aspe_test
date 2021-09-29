@@ -37,7 +37,7 @@ On peut sélectionner uniquement les opérations réalisées dans le cadre des r
 
 ```{r}
 passerelle <- passerelle %>%
-  aspe::mef_select_obj(objectif = 2:7)
+  aspe::mef_select_objectif(objectif = 2:7)
 ```
 
 Sélection de la période d'étude et ajout des IPR.
@@ -45,7 +45,7 @@ Sélection de la période d'étude et ajout des IPR.
 ```{r}
 ipr <- passerelle %>% 
   mef_ajouter_ipr() %>% 
-  left_join(y = ref_objectif %>% select(obj_id, obj_libelle)) %>% 
+  mef_ajouter_objectif() %>% 
   mef_ajouter_ope_date() %>% 
   filter(ope_date > lubridate::dmy("01/01/2010"),
          ope_date < lubridate::dmy("31/12/2020")) %>% 
@@ -59,9 +59,11 @@ NB: une même opération peut être répertoriée sur plusieurs réseaux.
 ipr %>% 
   filter(ipr > 0) %>% 
   droplevels() %>% 
-  group_by(annee, obj_libelle) %>% 
+  group_by(annee,
+           obj_libelle) %>% 
     summarise(n_pop = n_distinct(pop_id)) %>% 
-  pivot_wider(names_from = obj_libelle, values_from = n_pop) %>% 
+  pivot_wider(names_from = obj_libelle,
+              values_from = n_pop) %>% 
   View
 ```
 

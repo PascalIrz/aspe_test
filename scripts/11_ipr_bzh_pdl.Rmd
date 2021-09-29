@@ -273,7 +273,8 @@ data <- ipr %>%
 On scinde le tableau pour en avoir un par département. L'objet `data_par_dept` est une liste contenant un `dataframe` par département.
 
 ```{r}
-data_par_dept <- split(data, data$dept)
+data_par_dept <- split(x = data,
+                       f = data$dept)
 ```
 
 Production des graphiques. La fonction `map2()` prend en arguments la fonction à appliquer ainsi que deux listes contenant les arguments de la fonction :
@@ -388,7 +389,11 @@ mon_pop <- 41964
 ```{r}
 pop_data <- ipr_metriques %>% 
   mef_ajouter_libelle() %>% 
-  select(sta_id, pop_id, pop_libelle, annee, (ner:dti)) %>%
+  select(sta_id,
+         pop_id,
+         pop_libelle,
+         annee,
+         ner:dti) %>%
   distinct() %>% # pour éviter les doublons sur l'année qui sert de nom de lignes donc ne pê dupliquée
   mef_ipr_radar(pop_id = mon_pop)
 ```
@@ -470,11 +475,18 @@ pop_data <- pop_data %>%
   slice(-(1:2)) %>% 
   rownames_to_column(var = "annee") %>% 
   mutate(annee = as.integer(annee)) %>% 
-  pivot_longer(cols = -annee, names_to = "metrique", values_to = "valeur")
+  pivot_longer(cols = -annee,
+               names_to = "metrique",
+               values_to = "valeur")
 
-ggplot(data = pop_data, aes(x = annee, y = valeur)) +
-  geom_bar(stat = "identity", fill = couleurs_traits[1]) +
-  labs(x = "", y = "Valeur de la métrique", title = mon_titre) +
+ggplot(data = pop_data,
+       aes(x = annee,
+           y = valeur)) +
+  geom_bar(stat = "identity",
+           fill = couleurs_traits[1]) +
+  labs(x = "",
+       y = "Valeur de la métrique",
+       title = mon_titre) +
   facet_wrap(~metrique)
 ```
 
