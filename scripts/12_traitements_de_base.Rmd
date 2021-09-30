@@ -101,30 +101,19 @@ ref_moyen_prospection %>%
   kableExtra::kable_styling()
 ```
 
-Pour éviter de surcharger notre `dataframe`, la jointure n'est pas opérée sur la totalité de la table `y`, mais uniquement sur une sélection de ses colonnes. Par exemple ci-dessous, au lieu de joindre la totalité de la table `operation_description_peche` avce ses 29 colonnes, on ne rajoute que les deux colonnes correspondant aux codes opération (`odp_ope_id` qui est renommé `ope_id` pour que la jointure se fasse automatiquement car les deux tables ont un champ en commun) et moyen de prospectionb (`odp_mop_id` qui est renommé `mop_id`).
+La fonction `mef_ajouter_moyen_prospection()` permet de compléter la table passerelle avec le moyen de prospection pour ensuite filtrer les données :
 
 ```{r, message = FALSE}
 data <- data %>% 
-  left_join(y = operation_description_peche %>%
-                      select(ope_id = odp_ope_id, mop_id = odp_mop_id)) %>% 
-  left_join(y = ref_moyen_prospection %>%
-                      select(mop_id, mop_libelle))
-
-names(data)
-```
-
-Filtrage.
-
-```{r}
-data <- data %>% 
+  mef_ajouter_moyen_prospection() %>% 
   filter(mop_libelle == 'A pied')
 ```
 
-On peut ensuite supprimer les colonnes qui ne servent plus.
+On peut supprimer les colonnes qui ne servent plus.
 
 ```{r}
 data <- data %>% 
-  select(-mop_id, -mop_libelle)
+  select(-mop_libelle)
 ```
 
 ## Filtrage sur la méthode de prospection
@@ -134,7 +123,8 @@ Dans la table `ref_protocole` on peut voir que les pêches complètes correspond
 ```{r}
 data <- data %>% 
   left_join(y = operation %>%
-                    select(ope_id, pro_id = ope_pro_id)) %>% 
+                    select(ope_id,
+                           pro_id = ope_pro_id)) %>% 
   filter(pro_id == 1) %>% 
   select(-pro_id)
 ```
@@ -148,9 +138,12 @@ On complète les données par les effectifs, qui sont dans la table `lot_poisson
 ```{r}
 data <- data %>% 
   left_join(y = lot_poissons %>%
-                    select(lop_id, esp_id = lop_esp_id, lop_effectif)) %>%
+                    select(lop_id,
+                           esp_id = lop_esp_id,
+                           lop_effectif)) %>%
   left_join(y = ref_espece %>%
-                    select(esp_id, esp_code_alternatif)) %>% 
+                    select(esp_id,
+                           esp_code_alternatif)) %>% 
   select(-esp_id)
 ```
 
@@ -158,7 +151,8 @@ data <- data %>%
 
 ```{r}
 data <- data %>% 
-  left_join(y = operation %>% select(ope_id, ope_surface_calculee))
+  left_join(y = operation %>%
+              select(ope_id, ope_surface_calculee))
 ```
 ## Abondances et densités par espèce, richesse
 
@@ -166,7 +160,9 @@ Agrégation par opération et espèce (somme des effectifs par espèce pour chaq
 
 ```{r}
 data <- data %>% 
-    group_by(ope_id, esp_code_alternatif, ope_surface_calculee) %>% 
+    group_by(ope_id,
+             esp_code_alternatif,
+             ope_surface_calculee) %>% 
         summarise(effectif = sum(lop_effectif)) %>% 
     ungroup()
 ```
@@ -182,7 +178,8 @@ data <- data %>%
 Affichage du résultat.
 
 ```{r}
-data %>% DT::datatable(rownames = FALSE)
+data %>%
+  DT::datatable(rownames = FALSE)
 ```
 
 On peut simplement en déduire la richesse spécifique, par opération.
@@ -200,7 +197,8 @@ Il peut être utile de présenter les tableaux de données faunistiques avec une
 ```{r}
 densites_1col_p_sp <- data %>% 
   select(-effectif) %>% 
-  pivot_wider(names_from = esp_code_alternatif, values_from = densite_p_1000_m2)
+  pivot_wider(names_from = esp_code_alternatif,
+              values_from = densite_p_1000_m2)
 ```
 
 Pour ordonner les espèces par ordre alphabétique dans le `dataframe`, on procède en deux temps :
@@ -215,27 +213,36 @@ noms_esp_ordonnes <- densites_1col_p_sp %>%
   sort() # rangement alphabétique 
 
 densites_1col_p_sp <- densites_1col_p_sp %>%
-  select(ope_id, all_of(noms_esp_ordonnes)) %>% # mise des colonnes dans l'ordre souhaité
-  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(is.na(.), 0, .)) # remplacement des données manquantes par 0
+  select(ope_id,
+         all_of(noms_esp_ordonnes)) %>% # mise des colonnes dans l'ordre souhaité
+  mutate_at(all_of(noms_esp_ordonnes),
+            ~ifelse(is.na(.), 0, .)) # remplacement des données manquantes par 0
 ```
 
 Visualisation des premières lignes et colonnes.
 
 ```{r}
-densites_1col_p_sp %>% select(1:7) %>% head(20) %>% DT::datatable(rownames = FALSE)
+densites_1col_p_sp %>%
+  select(1:7) %>%
+  head(20) %>%
+  DT::datatable(rownames = FALSE)
 ```
 
 Si l'on veut juste les présence / absence.
 
 ```{r}
 pa_1col_p_sp <- densites_1col_p_sp %>% 
-  mutate_at(all_of(noms_esp_ordonnes), ~ifelse(. == 0, 0, 1))
+  mutate_at(all_of(noms_esp_ordonnes),
+            ~ifelse(. == 0, 0, 1))
 ```
 
 Visualisation des premières lignes et colonnes.
 
 ```{r}
-pa_1col_p_sp %>% select(1:7) %>% head(20) %>% DT::datatable(rownames = FALSE)
+pa_1col_p_sp %>%
+  select(1:7) %>%
+  head(20) %>%
+  DT::datatable(rownames = FALSE)
 ```
 
 
