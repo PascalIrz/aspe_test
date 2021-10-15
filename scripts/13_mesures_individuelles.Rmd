@@ -28,22 +28,30 @@ Les fonctions dédiées au traitement des mesures individuelles sont nommées av
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "processed_data/mei.RData")
+load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "../processed_data/mei.RData")
+load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "../processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 Vérification de la présence des tables dans l'environnement.
 
 ```{r}
-ls()
+map(.x = ls(),
+    .f = function(x) {
+      nom <- x
+      lignes <- x %>% get() %>% nrow()
+      colonnes <- x %>% get() %>% ncol()
+      data.frame(nom, lignes, colonnes)
+    }) %>% 
+  reduce(rbind) %>% 
+  DT::datatable()
 ```
 
 # Assemblage d'une "passerelle"
@@ -57,9 +65,9 @@ passerelle <- mef_creer_passerelle()
 ## Filtrage sur le département 56
 
 ```{r}
-id_stations_56 <- station %>%
-  mutate(sta_dept = str_sub(sta_com_code_insee, start = 1, end = 2)) %>% # création du champ sta_dept
-  filter(sta_dept == '56') %>% # sélection des observations sur les numéros de dept
+id_stations_56 <- passerelle %>%
+  mef_ajouter_dept() %>% # création du champ dept à partir du code Insee station (ou point si manquant)
+  filter(dept == '56') %>% # sélection des observations sur les numéros de dept
   pull(sta_id) # extraction des identifiants des stations
 
 data <- passerelle %>% 
@@ -71,10 +79,9 @@ data <- passerelle %>%
 Dans la table `ref_protocole` on peut voir que les pêches complètes correspondent à la variable `pro_id` égale à `1`. Pour filtrer plus rapidement que montré dans les exemple ci-dessus, on peut filtrer sur cette méthode.
 
 ```{r}
-data <- data %>% 
-  left_join(y = operation %>%
-                    select(ope_id, pro_id = ope_pro_id)) %>% 
-  filter(pro_id == 1) %>% 
+data <- data %>%
+  mef_ajouter_type_protocole() %>% 
+  filter(pro_libelle == "Pêche complète à un ou plusieurs passages") %>% 
   select(-pro_id)
 ```
 
@@ -100,7 +107,7 @@ Blabla exliquer la signification des champs.
 
 ## Histogramme des longueurs pour une espèce à l'occasion d'une opération.
 
-La fonction `grapher_histo_longueur()` sert à produire l'histogramme des longueurs mesurées (ou estimées à partir des poids) des individus. Elle prend en entrée :
+La fonction `gg_histo_longueur()` sert à produire l'histogramme des longueurs mesurées (ou estimées à partir des poids) des individus. Elle prend en entrée :
 
 - le `dataframe` issu des étapes précédentes
 - le numéro d'opération
