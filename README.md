@@ -12,3 +12,6 @@ Pour la suite, des fonctions vont être ajoutées pour répondre à la plupart d
 - [Importer les tables de la base depuis un dump](https://rpubs.com/kamoke/713407)  
 - [Traiter des données Indice Poisson Rivière (IPR)](https://rpubs.com/kamoke/713491)
 - [Faire des traitements de base à partir des lots](https://rpubs.com/kamoke/715102)
+- [Traiter des mesures individuelles](https://rpubs.com/kamoke/715858)
+- [Faire des traitements géographiques](https://rpubs.com/kamoke/716322)
+- [Construire des relations taille-poids](https://rpubs.com/kamoke/729779)
