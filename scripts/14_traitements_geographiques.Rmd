@@ -35,7 +35,7 @@ library(tidyverse)
 
 mapview::mapviewOptions(fgb = FALSE)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
 ```
 
 # Reprojection des stations
@@ -119,6 +119,7 @@ On emploie la fonction `geo_convertir_coords_df()`.
 coords_wgs84 <- geo_convertir_coords_df(df = station,
                                         var_x = "sta_coordonnees_x",
                                         var_y = "sta_coordonnees_y",
+                                        var_id = "sta_id",
                                         var_crs_initial = "typ_code_epsg",
                                         crs_sortie = 4326) %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
@@ -145,7 +146,8 @@ Il s'agit de créer l'homologue d'une couche SIG des stations.
 
 ```{r}
 station_geo <- station %>%
-  sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"), crs = 4326)
+  sf::st_as_sf(coords = c("x_wgs84", "y_wgs84"),
+               crs = 4326)
 ```
 
 Visualisation.
@@ -181,7 +183,10 @@ depts <- tod::osm_depts_tod(url = url_depts,
 Il s'agit ici de créer un polygone unique de la région englobant les départements choisis et entouré d'un buffer pour éviter le risque de "perdre" des données en bordure de région (il y en a car les cours d'eau servent fréquemment à délimiter les départements donc les régions). Le paramètre `distance_buffer` est en kilomètres.
 
 ```{r}
-region <- tod::osm_creer_polygone_region(departements_sf = depts,
+depts2 <- depts %>% 
+  sf::st_make_valid()
+  
+region <- tod::osm_creer_polygone_region(departements_sf = depts2,
                                          departements_selectionnes = c(22, 29, 56, 35),
                                          intitule_region = "Bretagne",
                                          distance_buffer = 0.1)

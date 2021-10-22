@@ -69,13 +69,13 @@ library(tidyverse)
 
 ## Cas 1 : votre machine a 16Go de RAM ou plus
 
-On importe la totalité de la base en une fois, ce qui est bien pratique. Dans la logique de l'arborescence du projet, le fichier de données - ici préalablement décompressé - est stocké dans le répertoire `raw_data`.
+On importe la totalité de la base en une fois, ce qui est bien pratique.
 
-```{r, eval = TRUE}
-imp_importer_dump_sql(fichier_dump = "../raw_data/aspe_20210908.sql.gz")
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+imp_importer_dump_sql(fichier_dump = "C:/Users/pascal.irz/Documents/projets/ASPE/raw_data/aspe_20211019.gz")
 ```
 
-Cette opération prend une dizaine de minutes. L'import peut produire des messages d'avertissement (`Warning`) de ce type, qui n'indiquent pas de problème :
+L'opération prend environ une demi-heure. L'import peut produire des messages d'avertissement (`Warning`) de ce type, qui n'indiquent pas de problème :
 
 ![](../assets/message_erreur_import.png)
 
@@ -85,10 +85,10 @@ Quand l'importation est terminée, une centaine de `dataframe` apparaissent dans
 
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite. Comme la table `mesure_individuelle` pèse à elle seule la moitié du volume de la base, on choisit de la conserver dans un fichier à part.
 
-```{r, eval = TRUE}
-save(mesure_individuelle, file = "../processed_data/mei.RData")
-rm(mesure_individuelle)
-save.image(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
+On peut utiliser la fonction `export_tables_rdata()` qui les nomme en fonction des dates et heures au moment de la sauvegarde en créant si nécessaire un sous-répertoire `/processed_data`.
+
+```{r, message = FALSE, warning = FALSE}
+export_tables_rdata()
 ```
 
 >NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
@@ -161,13 +161,17 @@ Cette sauvegarde est réalisée au format `.RData` par la fonction `exp_tables_r
 aspe::export_tables_rdata()
 ```
 
+```{r, eval = TRUE}
+aspe::export_tables_rdata(repertoire = "../processed_data")
+```
+
 Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package `{gdata}`, à installer si besoin.
 
 ```{r, eval = FALSE}
-gdata::keep(operation, operation_description_peche, operation_donnees_environnementales, operation_ipr,
-            station, point_prelevement, libelles, lot_poissons, parametres, parametres_globaux,
-            ref_type_projection, prelevement_elementaire, ref_espece, ref_methode_estimation_poids,
-            ref_protocole, ref_type_lot, ref_unite_hydrographique, ref_objectif, operation_objectif,
+gdata::keep(operation,
+            operation_ipr,
+            station,
+            point_prelevement,
             sure = TRUE)
 
 save.image(file = "processed_data/tables_selectionnees.RData")
