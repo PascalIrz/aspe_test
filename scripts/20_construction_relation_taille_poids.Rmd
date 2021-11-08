@@ -17,13 +17,13 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 Ce document donne un exemple de chaîne de traitement des données Aspe pour produire des relations taille - poids.
 
-Ces relations se veulent aussi générales que possible, donc on veillera à ce que des observations atypiques, voire des erreurs dans la base de données, ne viennent pas les influencer exagérément. La dernière partie montre comment confronter les résultats issus de Aspe à ceux publiés dans la littérature.
+Ces relations se veulent aussi générales que possible, donc on veillera à ce que des observations atypiques, voire des erreurs dans la base de données, ne viennent pas les influencer exagérément. La dernière partie montre comment confronter les résultats issus de Aspe à ceux publiés dans la littérature et diffusés par la base en ligne [Fishbase](www.fishbase.se).
 
-Il suppose que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData`.
+Il suppose que le package `aspe` a été installé et que les opérations d'importation depuis le `dump` ont été effectuées et les `dataframe` sauvegardés au format `.RData` (sinon se reporter au [tuto dédié à ces étapes](https://rpubs.com/kamoke/713407)).
 
-Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `qtp_`.
+Les fonctions du package `aspe` dédiées à ces traitements sont identifiées par le préfixe `qtp_`, pour "Qualité Taille Poids" car l'usage premier de ces fonctions est la mise en qualité de la base en détectant de potentielles erreurs de mesures ou de saisie.
 
-
+Les fonctions de mise en forme du jeu de données en vue de son traitement sont préfixées par `mef_`.
 
 # Grandes lignes de l'analyse
 
@@ -31,13 +31,21 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 
 Le point de départ est l'hypothèse classique selon laquelle l'équation qui permet de relier la longueur d'un poisson à son poids est de la forme :
 
+<div align="center">
+
 $Poids=a\cdot Longueur^b$
+
+</div>
 
 Les valeurs des coefficients $a$ et $b$ dépendent des unités qui sont, dans Aspe, les grammes et les millimètres.
 
 Pour déterminer les valeurs des coefficients sur un jeu de données, les deux termes de l'égalité sont log-transformés pour prendre la forme :
 
+<div align="center">
+
 $\log(Poids)=\log(a)+b\cdot log(Longueur)$
+
+</div>
 
 Il suffit d'effectuer la régression linéaire de $\log(Poids)$ en fonction de $log(Longueur)$, de récupérer les coefficients $\alpha=\log(a)$ et $\beta=b$, puis de calculer $a=e^{\alpha}$.
 
@@ -45,11 +53,11 @@ Il suffit d'effectuer la régression linéaire de $\log(Poids)$ en fonction de $
 
 L'analyse reposant sur la régression entre deux grandeurs, il est nécessaires que ces deux grandeurs :
 
-- Soient mesurées avec une précision suffisante.
-- Présentent une certaine variabilité.
-- Soient mesurées sur un nombre suffisant d'individus.
+- Soient mesurées avec une précision suffisante
+- Présentent une certaine variabilité
+- Soient mesurées sur un nombre suffisant d'individus
 
-Il faut aussi que les distributions des deux variables soient "raisonnablement" proches d'une gaussienne une fois log-transformées pour éviter que de potentiels *outliers* ne perturbent la relation générale.
+Il faut aussi que les distributions des deux variables soient "raisonnablement" proches d'une gaussienne une fois log-transformées en particulier pour éviter que de potentiels *outliers* ne perturbent la relation générale.
 
 ## Chargement packages et données
 
@@ -57,16 +65,16 @@ Il faut aussi que les distributions des deux variables soient "raisonnablement" 
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "processed_data/mei.RData")
+load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "../processed_data/mei.RData")
+load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "../processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 # Gammes de taille et de poids
@@ -81,42 +89,53 @@ Dans cet exemple, toutes les mesures individuelles de la base sont prises en com
 
 Pour constituer le jeu de données, les étapes sont :
 
-- La table `mesure_individuelle` est filtrée pour supprimer les observations avec taille ou poids manquant ou nul et ne conserver que les mesures réellement effectuées.
-- Jointure sur la table `lot_poissons` pour obtenir l'identifiant Aspe de l'espèce.
-- Jointure sur la table `ref_espece` pour obtenir le code à trois lettres de l'espèce.
+- Création d'une table "passerelle" mettant en correspondance les sites, opérations, etc.   
+- Ajout des lots de poissons et de leur type pour ne conserver que les mesures individuelles   
+- Remplacement des codes espèces internes de la base par les codes à trois lettres   
+- Ajout des mesures individuelles pour ne conserver que les mesures réelles et positives de longueur et masse   
+- Sélection des variables à conserver et dédoublonnage   
 
-Les jointures sont effectuées sur une sélection des colonnes des tables (fonction `select()`) afin d'éviter de surcharger le tableau de données avec des colonnes inutiles.
-
-Il est possible de sélectionner uniquement les mesures de longueur à la fourche (`filter(mei_tlo_id == 1)`) ou bien les longueurs totales (`filter(mei_tlo_id == 2)`). Dans cet exemple toutes les mesures sont conservées.
 
 ```{r}
-tp_data <- mesure_individuelle %>% 
-  filter(mei_taille > 0 & mei_poids > 0 & # tailles et poids positifs
-         mei_mesure_reelle == "t") %>% 
-  left_join(y = lot_poissons %>% # jointure pour ajouter "lot_poissons"
-              select(mei_lop_id = lop_id, esp_id = lop_esp_id, lop_tyl_id)) %>%
-  filter(lop_tyl_id == 4) %>% # Type de lot correspondant aux mesures individuelles
-  left_join(y = ref_espece %>%
-              select(esp_id, esp_code_alternatif)) %>% 
-  select(-mei_sex_id, -(mei_poids_estime:mei_age), -lop_tyl_id, -esp_id, -mei_mesure_reelle)
+tp_data <- mef_creer_passerelle() %>% # création de la passerelle
+  mef_ajouter_lots() %>% # ajout des lots
+  mef_ajouter_type_lot() %>% # ajout du type de lot
+  filter(tyl_libelle == "N") %>%  # type de lot correspondant aux mesures individuelles
+  mef_ajouter_esp_code_alternatif() %>% # ajout des codes espèces à trois lettres
+  mef_ajouter_mei() %>% # ajout mesures individuelles
+  filter(mei_taille > 0 & # taille positive
+         mei_poids > 0 & # poids positifs
+         mei_mesure_reelle == "t") %>% # mesure réelle et non obtenue en "dégroupant" des lots  
+  select(mei_id,
+         lop_id,
+         tlo_id,
+         mei_taille,
+         mei_poids,
+         esp_code_alternatif) %>% 
+  distinct() # dédoublonnage
 ```
 
 Combien de couples de mesures par espèce ?
 
+<div align="center">
+
 ```{r, class.source = 'fold-hide'}
-obs_par_esp <- tp_data %>% 
+tp_data %>% 
   group_by(esp_code_alternatif) %>% 
-    tally() %>% 
-    arrange(-n) %>% 
-    as.data.frame()
+    tally() %>%
+  ungroup() %>% 
+  arrange(-n) %>% 
+  as.data.frame() %>% 
+  DT::datatable(rownames = FALSE,
+                width = 300) %>% 
+  DT::formatCurrency(columns = 'n',
+                     currency = "",
+                     interval = 3,
+                     mark = " ",
+                     digits = 0)
 ```
 
-
-```{r, class.source = 'fold-hide'}
-obs_par_esp %>% 
-  DT::datatable(rownames = FALSE, width = 300) %>% 
-  DT::formatCurrency('n', currency = "", interval = 3, mark = " ", digits = 0)
-```
+</div>
 
 ## Distribution des longueurs
 
@@ -228,18 +247,18 @@ Filtrage en utilisant les seuils.
 
 ```{r}
 tp_esp <- data_esp %>%
-  filter(mei_taille > seuils_taille[1] &
-           mei_taille < seuils_taille[2]) %>% 
-  filter(mei_poids > seuils_poids[1] &
-           mei_poids < seuils_poids[2]) %>% 
-  filter(mei_poids >= 5) # en-dessous de 5g la balance est souvent imprécise
+  filter(mei_taille > seuils_taille[1],
+         mei_taille < seuils_taille[2], 
+         mei_poids > seuils_poids[1],
+         mei_poids < seuils_poids[2], 
+         mei_poids >= 5) # en-dessous de 5g la balance est souvent imprécise
 ```
 
 ### Modèle préliminaire
 
 On construit un premier modèle en sachant qu'il est potentiellement fortement influencé par quelques observations. Le but est d'identifier de telles observations pour si nécessaire les supprimer avant de construire de nouveau un modèle.
 
-La fonction `lm()` du package {stats} permet de réaliser une régression du log du poids en fonction du log de la longueur.
+La fonction `lm()` du package `{stats}` permet de réaliser une régression du log du poids en fonction du log de la longueur.
 
 ```{r}
 mod <- lm(log(mei_poids) ~ log(mei_taille),
@@ -258,13 +277,13 @@ Pour obtenir les graphiques de diagnostic :
 plot(mod)
 ```
 
-Malgré un $r^2 ajusté$ de 0.93, l'ajustement est médiocre. Quelques *outliers* contribuent fortement au modèle. Ils ont un très fort 'bras de levier' (*leverage*) comme le montre le graphique du bas.
+Malgré un r² ajusté de 0.93, l'ajustement est médiocre. Quelques *outliers* contribuent fortement au modèle. Ils ont un très fort 'bras de levier' (*leverage*) comme le montre le graphique du bas.
 
 ### Elimination des observations trop influentes
 
 Pour évaluer l'influence de chacun des individus sur l'équation de la régression, on peut utiliser la [distance de Cook](https://fr.wikipedia.org/wiki/Distance_de_Cook). Une cote mal taillée consiste à considérer que si la distance de Cook d'une observation excède 4/N, avec N le nombre d'observations, il est préférable d'éliminer cette observation.
 
-Ces distances sont obtenues en appliquant au modèle la fonction `cooks.distance()` du package {stats}. 
+Ces distances sont obtenues en appliquant au modèle la fonction `cooks.distance()` du package `{stats}`. 
 
 ```{r}
 dist_cook <- cooks.distance(mod)
@@ -314,10 +333,16 @@ tp_esp <- tp_esp %>%
   arrange(mei_taille) # mise en ordre de taille (pour le geom_line())
 
 # graphique en axes arithmétiques
-gg1 <- ggplot(data = tp_esp, aes(x = mei_taille, y = mei_poids)) +
+gg1 <- ggplot(data = tp_esp,
+              aes(x = mei_taille,
+                  y = mei_poids)) +
   geom_point(size = 0.2) +
-  geom_line(aes(y = predicted), col = "red", size = 1) +
-  labs(x = "Longueur (mm)", y = "Masse (g)", title = mon_espece)
+  geom_line(aes(y = predicted),
+            col = "red",
+            size = 1) +
+  labs(x = "Longueur (mm)",
+       y = "Masse (g)",
+       title = mon_espece)
 
 # graphique en axes log-log
 gg2 <- gg1 +
@@ -325,7 +350,9 @@ gg2 <- gg1 +
   scale_y_log10()
 
 # assemblage des graphiques
-ggpubr::ggarrange(gg1, gg2, nrow = 1)
+ggpubr::ggarrange(gg1,
+                  gg2,
+                  nrow = 1)
 ```
 
 
@@ -367,20 +394,13 @@ mes_especes
 
 Au total, `r length(mes_especes)` espèces comptent suffisamment d'individus.
 
-Application de la fonction `qtp_calcul()` aux espèces sélectionnées.
+Application de la fonction `qtp_calcul()` aux espèces sélectionnées, passage en numérique de toutes les variables sauf `esp_code_alternatif` et tri par ordre croissant du nombre d'individus mesurés et pesés :
 
 ```{r}
 tp <- qtp_calcul(df = tp_data,
-                 especes = mes_especes)
-sp <- tp %>% 
-  pull(esp_code_alternatif)
-
-tp <- tp %>% 
-  select(-esp_code_alternatif) %>% 
-  mutate_all(as.numeric)
-
-tp <- cbind(sp, tp) %>% 
-  rename(code_espece = sp) %>% 
+                 especes = mes_especes) %>% 
+  mutate(across(!esp_code_alternatif,
+                as.numeric)) %>% 
   arrange(-n_ind)
 ```
 
@@ -397,6 +417,19 @@ tp %>%
   DT::formatCurrency(columns = c('n_ind', 'poids_maxi'), currency = "",
                      interval = 3, mark = " ", digits = 0)
 ```
+
+```{r, class.source = 'fold-hide'}
+tp %>% 
+  downloadthis::download_this(
+    output_name = "taille_poids",
+    output_extension = ".csv",
+    button_label = "Télécharger le tableau en csv",
+    button_type = "success",
+    has_icon = TRUE,
+    icon = "fa fa-save"
+  )
+```
+
 ### Exportation / sauvegarde
 
 Pour une exploitation avec R :
@@ -411,7 +444,7 @@ Pour une exploitation avec un tableur :
 write.csv2(tp, file = "processed_data/tp.csv", row.names = FALSE)
 ```
 
-# Mise en perspective
+# Mise en perspective / Fishbase
 
 <div align="center">
 
@@ -425,25 +458,28 @@ Il a été  et a largement enrichi depuis 2012 pour suivre les évolutions de Fi
 
 On peut donc comparer nos résultats avec des données de [Fishbase](www.fishbase.se). 
 
-## Téléchargement des données Fishbase
+## Installation du package `{rfishbase}`
 
-Il faut d'abord charger le package {rfishbase} puis utiliser sa fonction `length_weight()`. 
-
-Installation du package {rfishbase}.
+Il faut d'abord charger le package {rfishbase} pour accéder à sa fonction `length_weight()`. 
 
 ```{r, eval = FALSE}
 install.packages("rfishbase")
 ```
 
-Chargement des données.
+## Téléchargement des données Fishbase
 
 Exemple avec la tanche, *Tinca tinca* (la fonction permettrait de charger les relations pour plusieurs espèces à la fois).
 
 ```{r}
 nom_latin <- "Tinca tinca" # choix de l'espèce
 fb_data <- rfishbase::length_weight(nom_latin) %>% 
-  select(a, b, r2_ajuste = CoeffDetermination, n_ind = Number, taille_mini = LengthMin,
-         taille_maxi = LengthMax, lieu = Locality)
+  select(a,
+         b,
+         r2_ajuste = CoeffDetermination,
+         n_ind = Number,
+         taille_mini = LengthMin,
+         taille_maxi = LengthMax,
+         lieu = Locality)
 ```
 
 Création d'un objet `lieu` pour localiser notre étude.
@@ -456,21 +492,17 @@ Assemblage des tableaux. Il s'agit d'empiler nos résultats pour une espèce ave
 
 ```{r}
 synthese <- tp %>% 
-  filter(code_espece == "TAN") %>% # seulement la tanche
+  filter(esp_code_alternatif == "TAN") %>% # seulement la tanche
   cbind(lieu) %>% # ajout du lieu comme une colonne
   select(names(fb_data)) %>% # agencement des colonnes dans le même ordre que celles de fb_data
   rbind(fb_data) # empilement
 ```
 
-Comme les intitulés des lieux d'étude sont assez moches (parfois les années, les coordonnées etc.) on peut les nettoyer un peu en utilisant les fonctions de traitement des chaînes de caractères du package `stringr` qui a fait partie de `tidyverse` (donc qui est déjà activé).
+Comme les intitulés des lieux d'étude sont assez moches (parfois les années, les coordonnées etc.) on peut les nettoyer un peu en utilisant la fonction `qtp_nettoyer_fb_lieu()` qui va supprimer dans la variable `lieu` les chiffres, les contenus entre parenthèses, les coordonnées ainsi que divers caractères spéciaux.
 
 ```{r}
 synthese <- synthese %>% 
-  mutate(lieu = str_replace_all(lieu, " \\s*\\([^\\)]+\\)", ""),# suppr. texte entre parenthèses
-         lieu = str_replace_all(lieu, "[:digit:]", ""), # suppr. les chiffres (coords, années)
-         lieu = str_replace_all(lieu, "[\\-\\/]", ""), # suppr. certains caractères spéciaux
-         lieu = str_squish(lieu), # supprimer les espaces qui trainent ou les fusionner
-         lieu = str_replace(lieu, ",$", "")) # si le dernier caractère est une virgule, la suppr.
+  qtp_nettoyer_fb_lieu()
 ```
 
 Tableau mise en forme :
@@ -485,6 +517,7 @@ synthese %>%
                        interval = 3, mark = " ", digits = 0)
   
 ```
+
 
 ## Mise en perspective graphique
 

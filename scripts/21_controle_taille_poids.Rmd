@@ -23,16 +23,16 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "processed_data/mei.RData")
+load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/toutes_tables_aspe_sauf_mei.RData")
-load(file = "../processed_data/mei.RData")
+load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "../processed_data/mei_2021_09_29_11_57_35.RData")
 ```
 
 # Grandes lignes de l'analyse
