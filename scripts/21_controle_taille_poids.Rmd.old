@@ -23,16 +23,16 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
-load(file = "processed_data/mei_2021_09_29_11_57_35.RData")
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
+load(file = "raw_data/mei_2021_10_21_11_44_01.RData")
 ```
 
-```{r, eval = TRUE, echo = FALSE}
+```{r, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
-load(file = "../processed_data/mei_2021_09_29_11_57_35.RData")
+load(file = "../../../raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
+load(file = "../../../raw_data/mei_2021_10_21_11_44_01.RData")
 ```
 
 # Grandes lignes de l'analyse
@@ -63,7 +63,7 @@ Les tests vont consister à s'assurer que pour chaque individu :
 
 Deux types de relations taille-poids vont être utilisées ici :
 
-- Les relations publiées, collectées depuis la base de données inctyologique en ligne [fishbase](www.fishbase.se).
+- Les relations publiées, collectées depuis la base de données ichtyologique en ligne [fishbase](www.fishbase.se).
 - Le relations calculées depuis les données de la base Aspe.
 
 # Calcul des seuils plausibles de taille et de poids
