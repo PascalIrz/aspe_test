@@ -79,9 +79,18 @@ load(file = "raw_data/mei_2021_10_21_11_44_01.RData")
 library(aspe)
 library(tidyverse)
 
-load(file = "../../../raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
-load(file = "../../../raw_data/mei_2021_10_21_11_44_01.RData")
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+rdata_mei <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                      pattern = "^mei")
+
+load(rdata_tables)
+load(rdata_mei)
+
+rm(data_tables, rdata_mei)
 ```
+
 
 ## Assemblage du jeu de données
 
@@ -692,8 +701,8 @@ tp_fb <- tp_fb %>%
   group_by(esp_nom_latin, tlo_libelle) %>% 
     summarise(a = exp(mean(log(a))), # moyenne géométrique
               b = mean(b), # moyenne arithmétique
-              n_etudes = n(),
-              source = "Fishbase") %>% # nb d'études
+              n_etudes = n(), # nb d'études
+              source = "Fishbase") %>% 
   left_join(y = especes) %>% 
   select(esp_code_alternatif,
          esp_nom_latin,

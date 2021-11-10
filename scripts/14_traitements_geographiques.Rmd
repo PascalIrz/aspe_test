@@ -17,7 +17,7 @@ Ce tutoriel montre quelques exemples de traitements géographiques à partir de 
 - reprojeter pour homogénéiser les systèmes de coordonnées qui coexistent dans la base
 - produire des cartes
 
-Le chargement du package {aspe} est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)), de même que l'importation initiale des données.
+Le chargement du package `{aspe}` est supposées déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)), de même que l'importation initiale des données.
 
 # Chargement des packages et des données
 
@@ -26,16 +26,18 @@ library(aspe)
 library(tidyverse)
 library(mapview)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
 ```
 
-```{r, eval = TRUE, echo = FALSE, message = FALSE}
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
 library(aspe)
 library(tidyverse)
+library(mapview)
 
-mapview::mapviewOptions(fgb = FALSE)
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
 
-load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(rdata_tables)
 ```
 
 # Reprojection des stations
@@ -169,13 +171,15 @@ Téléchargement du shapefile des contours des départements en WGS84 sur le por
 ```{r, eval = FALSE, echo = TRUE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
 depts <- tod::osm_depts_tod(url = url_depts,
-                            repertoire = "raw_data")
+                            repertoire = "raw_data",
+                            crs_sortie = 2154)
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
 depts <- tod::osm_depts_tod(url = url_depts,
-                            repertoire = "../raw_data")
+                            repertoire = "../raw_data",
+                            crs_sortie = 2154)
 ```
 
 ### Création d'un polygone pour la région
@@ -183,13 +187,14 @@ depts <- tod::osm_depts_tod(url = url_depts,
 Il s'agit ici de créer un polygone unique de la région englobant les départements choisis et entouré d'un buffer pour éviter le risque de "perdre" des données en bordure de région (il y en a car les cours d'eau servent fréquemment à délimiter les départements donc les régions). Le paramètre `distance_buffer` est en kilomètres.
 
 ```{r}
-depts2 <- depts %>% 
-  sf::st_make_valid()
+# depts2 <- depts %>% 
+#   sf::st_make_valid()
   
-region <- tod::osm_creer_polygone_region(departements_sf = depts2,
+region <- tod::osm_creer_polygone_region(departements_sf = depts,
                                          departements_selectionnes = c(22, 29, 56, 35),
                                          intitule_region = "Bretagne",
-                                         distance_buffer = 0.1)
+                                         distance_buffer = 0.1) %>% 
+  sf::st_transform(crs = 4326) # reprojection en wgs84 comme les points
 
 ```
 
@@ -238,17 +243,20 @@ point_prelevement <- point_prelevement %>%
 coords_wgs84 <- geo_convertir_coords_df(df = point_prelevement,
                                         var_x = "pop_coordonnees_x",
                                         var_y = "pop_coordonnees_y",
+                                        var_id = "pop_id",
                                         var_crs_initial = "typ_code_epsg",
                                         crs_sortie = 4326) %>%
   rename(pop_x_wgs84 = X, pop_y_wgs84 = Y)
 
 point_prelevement <- point_prelevement %>%
   bind_cols(coords_wgs84) %>%
-  select(-(pop_com_code_insee_wama:pop_fog_id_cerema), -(pop_uti_id:typ_code_epsg))
+  select(-(pop_com_code_insee_wama:pop_fog_id_cerema),
+         -(pop_uti_id:typ_code_epsg))
 
 # Sélection des points qui sont dans la région
 point_prelevement_geo <- point_prelevement %>%
-  sf::st_as_sf(coords = c("pop_x_wgs84", "pop_y_wgs84"), crs = 4326)
+  sf::st_as_sf(coords = c("pop_x_wgs84", "pop_y_wgs84"),
+               crs = 4326)
 
 point_prelevement_bzh <- sf::st_join(point_prelevement_geo, region) %>%
   filter(!is.na(region))

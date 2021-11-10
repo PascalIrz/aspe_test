@@ -32,15 +32,20 @@ Le chargement du package {aspe} est supposées déjà réalisé (voir [ce suppor
 library(aspe)
 library(tidyverse)
 
-load(file = "processed_data/toutes_tables_aspe_sauf_mei.RData")
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
 ```
 
-```{r, eval = TRUE, echo = FALSE, message = FALSE}
+```{r, echo = FALSE}
 library(aspe)
 library(tidyverse)
 
-load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+load(rdata_tables)
 ```
+
+La dernière date de saisie / modification / opération dans la base est le `r format(misc_derniere_date(), '%d %B %Y')`.
 
 # Assemblage d'une "passerelle"
 

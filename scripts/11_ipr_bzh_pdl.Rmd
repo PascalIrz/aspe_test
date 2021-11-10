@@ -19,18 +19,21 @@ Les fonctions du package `aspe` dédiées à ces traitements sont identifiées p
 
 # Chargement des packages et des données
 
-```{r}
+```{r, eval = FALSE}
 library(aspe)
 library(tidyverse)
-```
 
-
-```{r, eval = FALSE}
-load(file = "processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
 ```
 
 ```{r, echo = FALSE}
-load(file = "../processed_data/tables_sauf_mei_2021_09_10_14_35_58.RData")
+library(aspe)
+library(tidyverse)
+
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+load(rdata_tables)
 ```
 
 # Grandes lignes de l'analyse
@@ -69,7 +72,8 @@ Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est util
 
 ```{r}
 passerelle <- passerelle %>% 
-  mef_select_dept(dept = c(22, 29, 35, 56))
+  mef_ajouter_dept() %>% 
+  filter(dept %in% c(22, 29, 35, 56))
 ```
 
 >Le package {aspe} permet aussi effectuer une [sélection géographique](https://rpubs.com/kamoke/716322), par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
