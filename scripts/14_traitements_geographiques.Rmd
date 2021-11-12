@@ -2,7 +2,11 @@
 title: "ASPE - Opérations géographiques"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
-output: html_document
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_float: true 
 ---
 
 ```{r setup, include=FALSE}
@@ -14,6 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
 Ce tutoriel montre quelques exemples de traitements géographiques à partir de la base Aspe, afin de :
 
 - créer des objets géographiques à partir des tables de la base
+- opérer des sélections géographiques (points et stations contenus dans un polygone) 
 - reprojeter pour homogénéiser les systèmes de coordonnées qui coexistent dans la base
 - produire des cartes
 
@@ -40,66 +45,50 @@ rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
 load(rdata_tables)
 ```
 
-# Reprojection des stations
-
-La table `ref_type_projection` fait correspondre un code (`typ_id`) à différentes manières de désigner le système de projection (le CRS). Ici nous utiliserons en particulier le libellé (`typ_libelle_sandre`) et le [code EPSG](https://georezo.net/wiki/main/dico/epsg) de chacun des CRS.
-
-## Systèmes de projection utilisés
+# Les systèmes de coordonnées (CRS)
 
 Pour des traitements géographiques, il est nécessaire que tous les objets manipulés soient dans un même CRS.
 
 Quelle est la fréquence de chaque CRS parmi les stations et les points de prélèvement ?
 
-```{r, message = FALSE}
-crs_stations <- station %>% 
-  rename(typ_id = sta_typ_id) %>% 
-  left_join(y = ref_type_projection) %>% 
-  pull(typ_libelle_sandre) %>% 
-  as.character() %>% 
-  table() %>% 
-  as.data.frame() %>% 
+```{r, message = FALSE, class.source = 'fold-hide'}
+crs_stations <- station %>%
+  rename(typ_id = sta_typ_id) %>%
+  left_join(y = ref_type_projection) %>%
+  pull(typ_libelle_sandre) %>%
+  as.character() %>%
+  table() %>%
+  as.data.frame() %>%
   purrr::set_names(c("CRS", "Nombre de stations"))
 
-crs_points <- point_prelevement %>% 
-  rename(typ_id = pop_typ_id) %>% 
-  left_join(y = ref_type_projection) %>% 
-  pull(typ_libelle_sandre) %>% 
-  as.character() %>% 
-  table() %>% 
-  as.data.frame() %>% 
+crs_points <- point_prelevement %>%
+  rename(typ_id = pop_typ_id) %>%
+  left_join(y = ref_type_projection) %>%
+  pull(typ_libelle_sandre) %>%
+  as.character() %>%
+  table() %>%
+  as.data.frame() %>%
   purrr::set_names(c("CRS", "Nombre de points"))
 
-crs_tot <- full_join(x = crs_points, y = crs_stations)
+crs_tot <- full_join(x = crs_points,
+                     y = crs_stations)
 
 DT::datatable(crs_tot, width = 600, rownames = FALSE)
 ```
 
+# Reprojection des stations
+
+La table `ref_type_projection` fait correspondre un code (`typ_id`) à différentes manières de désigner le système de projection (le CRS). Ici nous utiliserons en particulier le libellé (`typ_libelle_sandre`) et le [code EPSG](https://georezo.net/wiki/main/dico/epsg) de chacun des CRS.
+
 Concernant les CRS utilisés pour les stations et les points de prélèvement, la table `ref_type_projection` contient les données suivantes :
 
-```{r}
+```{r, class.source = 'fold-hide'}
 ref_type_projection %>%
   filter(typ_libelle_sandre %in% (crs_tot %>% pull(CRS))) %>% 
   as.data.frame() %>% 
   DT::datatable()
 ```
 
-Il apparaît que pour le Lambert II étendu, le code EPSG (27572) est manquant. Il faut donc compléter la table `ref_type_projection`.
-
-```{r}
-ref_type_projection <- ref_type_projection %>%
-  mutate(typ_code_epsg = ifelse((is.na(typ_code_epsg) & typ_libelle_sandre == "Lambert II Etendu"),
-                                yes = 27572,
-                                no = typ_code_epsg))
-```
-
-Vérification :
-
-```{r}
-ref_type_projection %>%
-  filter(typ_libelle_sandre %in% (crs_tot %>% pull(CRS))) %>% 
-  as.data.frame() %>% 
-  DT::datatable()
-```
 
 ## Homogénéisation des systèmes de coordonnées
 
@@ -115,7 +104,7 @@ station <- station %>%
 
 ### Reprojection et extraction des coordonnées des stations en WGS84
 
-On emploie la fonction `geo_convertir_coords_df()`.
+On emploie la fonction `geo_convertir_coords_df()` qui donne en sortie un `dataframe` avec les coordonnées homogénéisées.
 
 ```{r, eval = TRUE}
 coords_wgs84 <- geo_convertir_coords_df(df = station,
@@ -127,11 +116,20 @@ coords_wgs84 <- geo_convertir_coords_df(df = station,
   rename(x_wgs84 = X, y_wgs84 = Y)
 ```
 
-Ajout des coordonnées WGS84 et suppression des colonnes qui ne serviront plus :
+Les premières lignes du `dataframe` :
 
-```{r}
+```{r, class.source = 'fold-hide'}
+coords_wgs84 %>% 
+  head() %>% 
+  DT::datatable(rownames = FALSE)
+```
+
+
+Ajout des coordonnées WGS84 par jointure gauche (`left_join()`) et suppression des colonnes qui ne serviront plus :
+
+```{r, message = FALSE}
 station <- station %>%
-  bind_cols(coords_wgs84) %>%
+  left_join(y = coords_wgs84) %>%
   select(-(sta_geometrie:typ_code_epsg))
 ```
 
@@ -140,11 +138,12 @@ Vérification que les colonnes correspondant aux coordonnées en WGS84 ont bien 
 ```{r}
 names(station)
 ```
-A ce stade, notre objet `station` est un simple tableau de données (`dataframe`) avec des colonnes correspondant aux coordonnées. Pour effectuer une sélection spatiale, il faut manipuler des objets spatiaux comme en SIG. Ces manipulations sont relativement simples grâce au package `sf`.
+
+A ce stade, l'objet `station` est un simple `dataframe` avec des colonnes correspondant aux coordonnées. Pour effectuer une sélection spatiale, il faut manipuler des objets spatiaux comme en SIG. Ces manipulations sont relativement simples grâce au package `sf`.
 
 ### Création d'un objet géographique pour les stations
 
-Il s'agit de créer l'homologue d'une couche SIG des stations.
+Il s'agit de créer l'homologue d'une couche SIG des stations avec la fonction `st_as_sf()` du package `sf`.
 
 ```{r}
 station_geo <- station %>%
@@ -162,11 +161,11 @@ Il y a bien quelques points aberrants mais c'est cohérant dans l'ensemble.
 
 ## Sélection géographique
 
-Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, il faut un polygone qui dessine les contours de la région.
+Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, il faut un polygone qui dessine les contours de la région. Celui-ci doit être dans le même système de coordonnées que les stations, donc en WGS84, identifié par son [code EPSG]() qui est égal à 4326. 
 
 ### Téléchargement
 
-Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `osm_depts_tod()` du package {tod}.
+Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `osm_depts_tod()` du package `{tod}`. Il serait logique de choisir directement le WGS84 comme CRS de sortie, mais l'opération de fusion des 4 départements de la région avec la fonction `osm_creer_polygone_region` du package `{tod}`. On va donc importer les départements en Lambert 93 (EPSG = 2154), puis les fusionner en une région qui sera enfin convertie en WGS84 (EPSG = 4326).
 
 ```{r, eval = FALSE, echo = TRUE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
@@ -187,20 +186,17 @@ depts <- tod::osm_depts_tod(url = url_depts,
 Il s'agit ici de créer un polygone unique de la région englobant les départements choisis et entouré d'un buffer pour éviter le risque de "perdre" des données en bordure de région (il y en a car les cours d'eau servent fréquemment à délimiter les départements donc les régions). Le paramètre `distance_buffer` est en kilomètres.
 
 ```{r}
-# depts2 <- depts %>% 
-#   sf::st_make_valid()
-  
 region <- tod::osm_creer_polygone_region(departements_sf = depts,
                                          departements_selectionnes = c(22, 29, 56, 35),
                                          intitule_region = "Bretagne",
                                          distance_buffer = 0.1) %>% 
-  sf::st_transform(crs = 4326) # reprojection en wgs84 comme les points
+  sf::st_transform(crs = 4326) # reprojection en wgs84 comme les stations
 
 ```
 
 ### Sélection
 
-La fonction `st_join()` du package {sf} permet de sélectionner l'intersection entre le polygone de la région et les points des stations.
+La fonction `st_join()` du package `{sf}` permet de sélectionner l'intersection entre le polygone de la région et les points des stations.
 
 ```{r}
 station_bzh <- station_geo %>% 
@@ -211,35 +207,47 @@ station_bzh <- station_geo %>%
 Visualisation.
 
 ```{r}
-mapview::mapview(region, alpha.regions = 0.1,
-                 map.types = c("OpenStreetMap", "CartoDB.Positron", "CartoDB.DarkMatter",
-                               "Esri.WorldImagery", "OpenTopoMap")) +
-  mapview::mapview(station_bzh, alpha = 0.9, col.regions = 'blue')
+mapview::mapview(region,
+                 alpha.regions = 0.1,
+                 map.types = c("OpenStreetMap",
+                               "CartoDB.Positron",
+                               "CartoDB.DarkMatter",
+                               "Esri.WorldImagery",
+                               "OpenTopoMap")) +
+  mapview::mapview(station_bzh,
+                   alpha = 0.9,
+                   col.regions = 'blue')
 ```
 
-La sélection ayant bien fonctionné, on peut restreindre la table `station` aux stations de la région.
+La sélection ayant bien fonctionné, on peut restreindre la table `station` aux stations de la région. On extrait des coordonnées à partir de l'objet géographique `sf` au moyen de la fonction `st_coordinates()` du package `sf`.
 
 ```{r}
+# dataframe des coordonnées 
 coords <- station_bzh %>%
   sf::st_coordinates() %>%
   as.data.frame() %>%
   purrr::set_names(c("sta_x_wgs84", "sta_y_wgs84"))
 
+# remplacement de l'ancien df "station" France entière par celui restreint à la région 
 station <- station_bzh %>%
-  sf::st_drop_geometry() %>%
-  bind_cols(coords) %>%
+  sf::st_drop_geometry() %>% # suppression de la géométrie (passage en dataframe) 
+  bind_cols(coords) %>% # ajout des colonnes de coordonnées
   select(-region)
 ```
 
-On peut procéder de même sur d'autres tables contenant des coordonnées (longitude et latitude) et une variable de CRS.
+# Reprojection des points de prélèvement
 
-Par exemple pour la table des points de prélèvements `point_prelevement` ci-dessous. Par contre comme il y a beaucoup plus de points que de stations, c'est plus long.
+On peut procéder comme pour les stations avec d'autres tables contenant des coordonnées (longitude et latitude) et une variable de CRS.
+
+Par exemple pour la table des points de prélèvements `point_prelevement`. Comme il y a beaucoup plus de points que de stations, c'est plus long.
 
 ```{r, eval = FALSE}
+# ajout au df point_prelevement du code EPSG
 point_prelevement <- point_prelevement %>%
   left_join(y = ref_type_projection,
             by = c("pop_typ_id" = "typ_id"))
 
+# création du df des coordonnées en XGS84
 coords_wgs84 <- geo_convertir_coords_df(df = point_prelevement,
                                         var_x = "pop_coordonnees_x",
                                         var_y = "pop_coordonnees_y",
@@ -248,25 +256,33 @@ coords_wgs84 <- geo_convertir_coords_df(df = point_prelevement,
                                         crs_sortie = 4326) %>%
   rename(pop_x_wgs84 = X, pop_y_wgs84 = Y)
 
+# ajout au df point_prelevement des coordonnées WGS84
 point_prelevement <- point_prelevement %>%
-  bind_cols(coords_wgs84) %>%
+  left_join(y = coords_wgs84) %>%
   select(-(pop_com_code_insee_wama:pop_fog_id_cerema),
          -(pop_uti_id:typ_code_epsg))
 
-# Sélection des points qui sont dans la région
+
+# création d'un objet "sf" des points
 point_prelevement_geo <- point_prelevement %>%
   sf::st_as_sf(coords = c("pop_x_wgs84", "pop_y_wgs84"),
                crs = 4326)
 
-point_prelevement_bzh <- sf::st_join(point_prelevement_geo, region) %>%
+# sélection des points qui sont dans la région
+point_prelevement_bzh <- point_prelevement_geo %>% 
+  sf::st_join(region) %>%
   filter(!is.na(region))
 
+# visualisation
 mapview::mapview(point_prelevement_bzh, alpha = 0.9, 
-                 map.types = c("OpenStreetMap", "CartoDB.Positron", "CartoDB.DarkMatter",
-                               "Esri.WorldImagery", "OpenTopoMap"))
+                 map.types = c("OpenStreetMap",
+                               "CartoDB.Positron",
+                               "CartoDB.DarkMatter",
+                               "Esri.WorldImagery",
+                               "OpenTopoMap"))
 ```
 
-
+On termine comme pour les stations :
 
 ```{r, eval = FALSE}
 coords <- point_prelevement_bzh %>%
