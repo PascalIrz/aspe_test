@@ -35,7 +35,7 @@ library(tidyverse)
 load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
 library(aspe)
 library(tidyverse)
 

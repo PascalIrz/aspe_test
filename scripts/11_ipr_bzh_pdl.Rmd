@@ -26,7 +26,7 @@ library(tidyverse)
 load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
 library(aspe)
 library(tidyverse)
 
@@ -35,6 +35,8 @@ rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
 
 load(rdata_tables)
 ```
+
+La dernière date de saisie / modification / opération dans la base est le `r format(misc_derniere_date(), '%d %B %Y')`.
 
 # Grandes lignes de l'analyse
 
