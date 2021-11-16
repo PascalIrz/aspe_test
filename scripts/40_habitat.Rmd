@@ -1,0 +1,431 @@
+---
+title: "ASPE - Variables d'habitat"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_float: true
+---
+  
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Objectif
+
+Ce tutoriel montre quelques exemples d'exploitation des données environnementales saisies dans la base Aspe :
+
+- Etude du lien entre les variables environnementales
+- Comparaison des caractéristiques environnementales des stations de présence et d'absence de chacune des espèces
+- Lien entre note IPR et variables environnementales
+
+# Chargement des packages et des données
+
+Les données ont été parsées depuis un dump de la base Aspe (cf. [ce tuto](https://rpubs.com/kamoke/713407)).
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+library(tod)
+
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(aspe)
+library(tidyverse)
+
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+load(rdata_tables)
+```
+
+La dernière date de saisie / modification / opération dans la base est le `r format(misc_derniere_date(), '%d %B %Y')`.
+
+# Constitution des tableaux de données
+
+## Données environnementales
+
+Les paramètres environnementaux peuvent être trouvés soit dans la table `operation_ipr` car ils servent au calcul de l'indice, soit dans la table `point_prelevement`. Ici nous choisissons d'associer les paramètres à l'opération. S'ils sont manquants, on les complète à partir des informations de la table `point_prelevement`.
+
+Pour compléter le tableau "passerelle" avec les données environnementales, on utilise `mef_ajouter_ope_env()` :
+
+```{r}
+df_env <- mef_creer_passerelle() %>% 
+  mef_ajouter_ope_date() %>% 
+  select(pop_id, ope_id, annee) %>% 
+  distinct() %>% 
+  mef_ajouter_ope_env() %>% 
+  mef_pivoter_var_env() # format"long" plus facile pour la suite
+```
+
+## Captures
+
+Les paramètres environnementaux peuvent être utilisés pour caractériser le macro-habitat des espèces. On peut par exemple calculer l'altitude moyenne des sites où une espèce a été détectée et l'interpréter en regard de l'altitude moyenne sites où elle n'a pas été détectée ou de celle des sites prospectés. Pour cet usage il est essentiel de ne conserver que les opérations réalisées dans un but d'inventaire, donc d'écarter les indices d'abondance qui, focalisés sur une des espèces, ne renseignent pas sur les autres.
+
+```{r}
+ref_protocole %>%
+  knitr::kable()
+```
+
+Retenons les protocoles d'inventaire :
+
+- Pêche complète à un ou plusieurs passages
+- Pêche partielle par points dans les grands milieux
+- Pêche par ambiances)
+
+Les pêches partielles sur berge pourraient évebtuellement être incluses (à débattre).
+
+On commence par créer une "passerelle" des correspondances entre les identifiants des tables de la base, à laquelle on ajouter pour chaque opération le type de protocole pour ensuite filtrer les modalités à retenir. 
+
+```{r}
+df_captures <- mef_creer_passerelle() %>% 
+  mef_ajouter_type_protocole() %>% 
+  filter(pro_libelle %in% c("Pêche complète à un ou plusieurs passages",
+                            "Pêche partielle par points (grand milieu)",
+                            "Pêche par ambiances")) %>% 
+  select(-poste_wama, -pro_libelle) %>% 
+  mef_ajouter_ope_date() %>% # ajout date et année
+  mef_ajouter_lots() %>% # ajout lots
+    select(ope_id,
+           annee,
+           esp_code_alternatif,
+           lop_effectif) %>%
+  group_by(across(-lop_effectif)) %>%
+    summarise(lop_effectif = sum(lop_effectif)) %>%
+  ungroup() %>%
+  distinct() %>%
+  mef_ajouter_abs()
+
+df_captures <- df_captures %>% 
+  mef_ajouter_surf_calc() %>% 
+  mutate(dens_ind_1000m2 = 1000 * lop_effectif / ope_surface_calculee)
+```
+
+
+
+# Description des variables
+
+## Distribution
+
+Les histogrammes des variables sont les suivants (les `outliers` au-delà du 99 pourcentile sont filtrés pour dilater l'échelle des abscisses) :
+
+```{r, class.source = 'fold-hide'}
+df_env %>% 
+  select(pop_id, parametre, valeur_parametre) %>% 
+  distinct() %>% 
+  group_by(parametre) %>% 
+     filter(valeur_parametre < quantile(valeur_parametre, 0.99)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = valeur_parametre)) +
+    geom_histogram() +
+    facet_wrap(~parametre, scales = "free") +
+    labs(x = "valeur du paramètre",
+         y = "Nb d'observations")
+```
+
+## Statistiques descriptives
+
+```{r, class.source = 'fold-hide'}
+df_env %>% 
+  select(pop_id, parametre, valeur_parametre) %>% 
+  distinct() %>% 
+  group_by(parametre) %>% 
+     summarise(n_points = n_distinct(pop_id), 
+               moyenne = mean(valeur_parametre),
+               médiane = median(valeur_parametre),
+               pourcentile_1 = quantile(valeur_parametre, 0.01),
+               pourcentile_99 = quantile(valeur_parametre, 0.99)) %>%
+  ungroup()
+```
+
+# Lien entre variables environnementales
+
+## Sélection des points
+
+Pour visualiser les liens entre variables environnementales, on cherchera d'une part les liens en les prenant deux à deux (corrélations) et d'autre part dans leur ensemble en opérant une Analyse en Composantes Principales (ACP). On ne retient que les points pour lesquels tous les paramètres sont renseignés.
+
+```{r}
+mes_pops <- df_env %>% 
+  group_by(pop_id) %>% 
+    summarise(n_parametres = n_distinct(parametre)) %>% 
+  ungroup() %>% 
+  filter(n_parametres == 9) %>% 
+  pull(pop_id)
+```
+
+## Mise en forme du tableau
+
+```{r}
+df <- df_env %>% 
+  filter(pop_id %in% mes_pops) %>% 
+    group_by(pop_id, parametre) %>%
+    filter(annee == max(annee)) %>% 
+    summarise(valeur_parametre = mean(valeur_parametre)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = parametre,
+              values_from = valeur_parametre)
+```
+
+## Relations bivariées
+
+```{r}
+df %>% 
+  select(-pop_id) %>% 
+  cor() %>% 
+  corrplot::corrplot(method = "ellipse")
+```
+
+## Analyse multivariée
+
+```{r}
+res.pca <- df %>% 
+  select(-pop_id) %>% 
+  FactoMineR::PCA(scale.unit=TRUE,
+                  ncp = 5,
+                  graph = FALSE)
+
+factoextra::fviz_pca_var(res.pca,
+                         col.var = "contrib",
+                         gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                         repel = TRUE # Avoid text overlapping
+             )
+
+# Contributions of variables to PC1
+factoextra::fviz_contrib(res.pca,
+                         choice = "var",
+                         axes = 1,
+                         top = 10)
+# Contributions of variables to PC2
+factoextra::fviz_contrib(res.pca,
+                         choice = "var",
+                         axes = 2,
+                         top = 10)
+```
+
+# Habitat : moyenne par taxon
+
+
+
+```{r}
+# df_env <- df_passerelle %>% 
+#   select(pop_id, ope_id) %>% 
+#   distinct() %>% 
+#   mef_ajouter_ope_env()
+```
+
+Pour comparer les caractéristiques des points de présence et d'absence d'une espèce donnée, au fil des années, on doit :
+
+- faire apparaître les lots et les années de pêche
+- indiquer les codes à trois lettres, plus faciles à manipuler que les identifiants taxonomiques internes à Aspe
+- regrouper les captures par espèce pour chaque opération
+- faire apparaître les absences dans les échantillons
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+df_captures_env <- df_captures %>% 
+  left_join(y = df_env) %>% 
+#  mef_pivoter_var_env() %>% 
+  mutate(presence = lop_effectif > 0)
+```
+
+Le tableau ainsi produit est volumineux (`r nrow(df_captures_env)` lignes). S'agissant de metttre les caractéristiques des sites de "présence" en regard de celles des sites d'"absence" de chacun des taxons, il n'est pas utile de disposer de plus d'observations d'absence que d'observations de présence. Or pour les espèces rares, le tableau comprend quelques observations de présence et beaucoup d'absence. On peut donc sous-échantillonner ces dernières.
+
+```{r}
+df_pa_env <- df_captures_env  %>%
+  mef_compter_pres_abs_env() %>% 
+  mutate(presences = ifelse(test = is.na(presences),
+                            yes = 0,
+                            no = presences))
+```
+
+Visualisation des premières lignes
+
+```{r, class.source = 'fold-hide'}
+df_pa_env %>%
+  slice(1:100) %>%
+  DT::datatable()
+```
+
+On peut considérer que cette partie de l'analyse n'a de sens que pour les espèces suffisamment présentes - par exemple à partir de n = 30 - et que l'on peut effectuer un sous-échantillonnage des absences à concurrence du nombre des présences. Il faut aussi tenir compte des données manquantes dans les variables environnementales, donc le chiffre de 30 doit s'entendre "minimum 30 sites où l'espèce est présente et pour lesquels la variable ... est disponible".
+
+
+
+```{r}
+# filtrage des combinaisons espèce x paramètres communes (sur l'ensemble des années)
+df_capt_env_communs <- df_pa_env %>% 
+  group_by(esp_code_alternatif, parametre) %>% 
+    summarise(presences = sum(presences, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  filter(presences > 30) %>%
+  select(esp_code_alternatif,
+         parametre)
+
+df_captures_env <- df_captures_env %>%
+  inner_join(y = df_capt_env_communs) %>% 
+  droplevels()
+```
+
+Sous-échantillonnage (la fonction `mef_ssech_abs()` est une adaptation de [cette page](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html)).
+
+```{r}
+df_captures_env_ssech <- df_captures_env %>% 
+  mef_ssech_esp_env() %>% 
+#  select(-dens_ind_1000m2) %>% # histoire d'alléger un peu
+  mutate(esp_code_alternatif = fct_relevel(esp_code_alternatif, sort)) # espèces en ordre alphabétique
+```
+
+Pour évaluer si le sous-échantillonnage est correct, on peut comparer les valeurs médianes des paramètres environnementaux entre le jeu de données complet et celui qui a été sous-échantillonné. On calcule donc pour chaque combinaison `espèce x paramètre environnemental x statut (présence ou absence)` la valeur médiane du paramètre dans chacun des jeux de données. Si tout va bien, pour chacune de ces combinaisons, les médianes sont identiques aux incertitudes d'échantillonnage près.
+
+```{r}
+med_complet <- df_captures_env %>% 
+  group_by(esp_code_alternatif,
+           parametre,
+           presence) %>% 
+    summarise(mediane_complet = median(valeur_parametre, na.rm = T),
+              n_complet = n()) %>% 
+  ungroup()
+
+med_ssech <- df_captures_env_ssech %>% 
+  group_by(esp_code_alternatif,
+           parametre,
+           presence) %>% 
+    summarise(mediane_ssech = median(valeur_parametre, na.rm = T),
+              n_ssech = n()) %>% 
+  ungroup()
+
+med <- med_complet %>% 
+  left_join(med_ssech) %>% 
+  mutate(delta_abs = mediane_complet - mediane_ssech,
+         delta_rel = (mediane_complet - mediane_ssech) / mediane_complet)
+```
+
+On peut donc représenter graphiquement la médiane du sous-échantillon en fonction de celle de l'échantillon complet. On un point pour chacune des combinaisons et on s'attend à ce que,   
+
+```{r, class.source = 'fold-hide'}
+ggplot(data = med,
+       aes(x = mediane_complet,
+           y = mediane_ssech,
+           col = parametre)) +
+  geom_point(size = 0.1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "médiane dans l'échantillon complet",
+       y = "médiane dans le sous-échantillon",
+       colour = "Paramètre") 
+```
+En filtrant les espèces sur mini 30 occurrences (sur une année sur un paramètre) :
+
+```{r, class.source = 'fold-hide'}
+ggplot(
+  data = med %>%
+    filter(n_ssech > 30) %>%
+    droplevels(),
+  aes(x = mediane_complet,
+      y = mediane_ssech,
+      col = parametre)
+) +
+  geom_point(size = 0.1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "médiane dans l'échantillon complet",
+       y = "médiane dans le sous-échantillon",
+       colour = "Paramètre") 
+```
+
+En filtrant les espèces sur mini 300 occurrences :
+
+
+```{r, class.source = 'fold-hide'}
+ggplot(
+  data = med %>%
+    filter(n_ssech > 300) %>%
+    droplevels(),
+  aes(x = mediane_complet,
+      y = mediane_ssech,
+      col = parametre)
+) +
+  geom_point(size = 0.1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "médiane dans l'échantillon complet",
+       y = "médiane dans le sous-échantillon",
+       colour = "Paramètre") 
+```
+
+Les gros écarts sont dûs aux espèces rares (nombre d'observations faible dans le sous-échantillon) en particulier pour le paramètre surface du bassin versant.
+
+```{r, class.source = 'fold-hide'}
+ggplot(data = med %>% filter(!presence),
+       aes(x = n_ssech,
+           y = delta_rel,
+           col = parametre))  +
+  geom_point() +
+  labs(x = "nombre d'observations dans le sous-échantillon",
+       y = "erreur relative",
+       colour = "Paramètre")  +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+```
+
+On voit que pb avec les variables qui comportent des valeurs extrêmes comme la surface du bv $\Rightarrow$ écarter les valeurs au-delà d'un certain quantile ? 
+
+```{r, class.source = 'fold-hide'}
+df_captures_env_ssech  %>% 
+  mef_compter_pres_abs_env() %>% 
+  DT::datatable()
+```
+
+
+# Habitat : temporalité
+
+On peut visualiser si les paramètres environnementaux moyens des sites où chaque espèce est présente ont changé au cours du temps.
+
+Cette analyse requiert des données de présence en nombre suffisant **chaque année, sur des sites où les facteurs environnementaux sont disponibles**. On va donc filter le jeu de données plus radicalement que précédement. Par exemple en ne retenant que les espèces pour lesquelles, au moins pour un des paramètres environnementaux, on a au moins 15 années avec pour chacune au moins 30 présences sur des sites où le paramètre est renseigné.
+
+```{r}
+especes_selectionnees <- df_captures_env_ssech %>% 
+  filter(presence, !is.na(parametre)) %>% # slt les présences et paramètre renseigné
+  group_by(esp_code_alternatif, parametre, annee) %>% 
+    tally() %>% # compte par paramètre, espèce et année du nb de fois où param est renseigné
+  group_by(esp_code_alternatif, annee) %>% 
+    summarise(n_param_mieux_renseigne = max(n)) %>% # nb de données pour le paramètre le mieux renseigné pour chaque espèce
+    filter(n_param_mieux_renseigne >= 30) %>% # mini 30
+  group_by(esp_code_alternatif) %>% 
+    summarise(n_annees = n_distinct(annee)) %>% # nb d'années
+  filter(n_annees >= 15) %>%  #mini 15
+  pull(esp_code_alternatif) %>% 
+  as.character()
+
+df_captures_env_ssech <- df_captures_env_ssech %>% 
+  filter(esp_code_alternatif %in% especes_selectionnees)
+```
+
+
+```{r, fig.height = 11, fig.width = 11}
+df_captures_env_ssech %>% 
+  aspe::gg_env_fn_annee()
+```
+
+
+# Sauvegarde des dataframes
+
+```{r, eval = FALSE}
+save(captures_et_env,
+     captures_et_env2,
+     captures_et_env3,
+     file = "../processed_data/captures_et_env.RData")
+```
+
+```{r, eval = FALSE}
+save(captures_et_env, captures_et_env2, file = "processed_data/captures_et_env.RData")
+```

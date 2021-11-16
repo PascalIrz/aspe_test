@@ -18,7 +18,7 @@ Ce tutoriel est un guide pour obtenir, à partir de la base Aspe, les résultats
 
 Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque individu (masse, longueur). La table contenant ces données est la plus volumineuse de la base donc les traitements peuvent être chronophages à l'échelle de la France entière. Ici, nous allons à titre d'exemple restreindre l'analyse à un département : le Morbihan (56) et ne conserver que les pêches dites "complètes".
 
-Le chargement du package {aspe} est supposé déjà réalisé (voir [ce support](https://rpubs.com/kamoke/713407)).
+Le chargement du package `{aspe}` est supposé déjà réalisé (si besoin voir [ce support](https://rpubs.com/kamoke/713407)).
 
 Les fonctions dédiées au traitement des mesures individuelles sont nommées avec le préfiwe `'mei_'`. Celles dédiées à la mise en forme des données par `'mef_'`.
 
