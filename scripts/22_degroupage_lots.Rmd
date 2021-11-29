@@ -1,0 +1,178 @@
+---
+title: "ASPE - Dégroupage des lots"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_float: true    
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Introduction
+
+La base de données Aspe contient des données de longueurs individuelles des poissons. Il est fastidieux de mesurer ces longueurs quand les effectifs sont importants, typiquement pour les $0^+$. Dans ces cas, on procède en regroupant les poissons par lots 
+
+# Objectif
+
+# Chargement packages et données
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
+load(file = "raw_data/mei_2021_10_21_11_44_01.RData")
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(aspe)
+library(tidyverse)
+
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+rdata_mei <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                      pattern = "^mei")
+
+load(rdata_tables)
+load(rdata_mei)
+
+rm(data_tables, rdata_mei)
+```
+
+
+## Assemblage du jeu de données
+
+Pour constituer le jeu de données, les étapes sont :
+
+- Création d'une table "passerelle" mettant en correspondance les sites, opérations, etc.   
+- Ajout des lots de poissons et de leur type
+- Ajout du type de longueur
+- Remplacement des codes espèces internes de la base par les codes à trois lettres   
+- Ajout des mesures individuelles pour ne conserver que les mesures réelles et positives de longueur et masse   
+- Sélection des variables à conserver et dédoublonnage   
+
+
+```{r}
+# data <- mef_creer_passerelle() %>% # création de la passerelle
+#   mef_ajouter_lots() %>% 
+#   mef_ajouter_type_lot() %>% 
+#   left_join(mesure_individuelle %>%
+#               rename(lop_id = mei_lop_id,
+#                        tlo_id = mei_tlo_id)) %>% distinct()
+#   # mef_ajouter_esp_code_alternatif() %>% # ajout des codes espèces à trois lettres
+#   mef_ajouter_mei() %>% # ajout mesures individuelles
+# #  mef_ajouter_type_longueur() %>% # ajout du type de longueur
+#   filter(mei_taille > 0) %>% # longueur positivs
+#   mef_ajouter_lots() %>% # ajout des lots
+#     mef_ajouter_type_lot() %>% # ajout du type de lot
+#   select(mei_id,
+#          lop_id,
+#          tyl_libelle,
+#          mei_taille,
+#          mei_poids,
+#          mei_mesure_reelle,
+#          esp_code_alternatif)
+
+data <- mef_creer_passerelle() %>% 
+  mef_ajouter_lots() %>% 
+  mef_ajouter_type_lot() %>% 
+  mef_ajouter_mei() %>% 
+  filter(mei_taille > 0) %>% # longueur positivs
+  select(mei_id,
+         lop_id,
+         tyl_libelle,
+         mei_taille,
+         mei_poids,
+         mei_mesure_reelle,
+         esp_code_alternatif)
+```
+
+Les premières lignes du tableau :
+
+```{r}
+data %>% 
+  head() %>% 
+  DT::datatable()
+```
+
+# Description des données
+
+## Types de lots
+
+
+```{r}
+ref_type_lot %>% 
+  select(tyl_libelle, tyl_libelle_sandre) %>% 
+  DT::datatable(rownames = F)
+```
+
+Nombre d'individus selon le type de lot, et selon que la mesure a été réellement effectuée (mei_mesure_reelle = t) ou qu'il s'agit d'une longueur produite par l'algorithme de dégroupage :
+
+```{r}
+data %>% 
+  group_by(tyl_libelle, mei_mesure_reelle) %>% 
+  tally() %>% 
+  pivot_wider(names_from = mei_mesure_reelle,
+              values_from = n) %>% 
+  knitr::kable(format.args = list(big.mark = " ",
+                                  scientific = FALSE),
+               col.names = c("Type de lot", "Longueur par dégroupage", "Longueur mesurée"))
+```
+
+
+On a donc du dégroupage dans les lots "G" et "S/L".
+
+## Dégroupage lots S/L
+
+On va comparer les distributions des longueurs, sur un même lot, entre individus mesurés réellement et individus dégroupés. Pour que ça ait un sens, la comparaison sera effectuée sur les lots comprenant au moins 30 individus mesurés individuellement et 30 individus "dégroupés".
+
+
+
+```{r}
+comptage <- data %>%
+  filter(tyl_libelle == "S/L") %>% 
+  group_by(esp_code_alternatif, lop_id, mei_mesure_reelle) %>% 
+    tally() %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = mei_mesure_reelle,
+              values_from = n) 
+mes_lots <- comptage %>% 
+  filter(f > 29, t > 29) %>% 
+  pull(lop_id)
+
+data <- data %>% 
+  filter(lop_id %in% mes_lots)
+```
+
+
+### Exemple sur un lot avec beaucoup d'individus
+
+```{r}
+mon_lot <- comptage %>% 
+  arrange(-t, -f) %>% 
+  filter(!is.na(f)) %>% 
+  slice(2) %>% 
+  pull(lop_id)
+
+lot_data <- data %>% 
+  filter(lop_id == mon_lot)
+
+mes_moyennes <- lot_data %>% 
+  group_by(mei_mesure_reelle) %>% 
+    summarise(moy = mean(mei_taille))
+
+ggplot(data = lot_data,
+       aes(x = mei_taille,
+               fill = mei_mesure_reelle)) +
+  geom_density(alpha = 0.2) +
+  geom_vline(data = mes_moyennes,
+             aes(xintercept = moy,
+                 col = mei_mesure_reelle))
+```
+
