@@ -25,7 +25,7 @@ Ces relations peuvent être utiles pour comparer des populations entre elles ain
 
 ## Outil
 
-Nous supposons ici que le package `{aspe}` a déjà été installé et que les tables de la base *Aspe* sont disponibles sous forme de `dataframes` sauvegardés au format `.RData` (sinon se reporter au [tuto dédié à ces étapes](https://rpubs.com/kamoke/713407)).
+Nous supposons ici que les packages `{aspe}` et `{aspeQual}` ont déjà été installés et que les tables de la base *Aspe* sont disponibles sous forme de `dataframes` sauvegardés au format `.RData` (sinon se reporter au [tuto dédié à ces étapes](https://rpubs.com/kamoke/713407)).
 
 Les fonctions du package `{aspe}` dédiées à ces traitements sont identifiées par le préfixe `qtp_`, pour "Qualité Taille Poids" car l'usage premier de ces fonctions est la mise en qualité de la base en détectant de potentielles erreurs de mesures ou de saisie.
 
@@ -69,6 +69,7 @@ Il faut aussi que les distributions des deux variables soient "raisonnablement" 
 
 ```{r, eval = FALSE}
 library(aspe)
+library(aspeQual)
 library(tidyverse)
 
 load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
@@ -77,6 +78,7 @@ load(file = "raw_data/mei_2021_10_21_11_44_01.RData")
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
 library(aspe)
+library(aspeQual)
 library(tidyverse)
 
 rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
@@ -133,16 +135,18 @@ Combien de couples de mesures par espèce, selon que la longueur mesurée est to
 
 ```{r, class.source = 'fold-hide'}
 obs_par_esp <- tp_data %>% 
-  group_by(esp_code_alternatif, tlo_libelle) %>% 
+  group_by(esp_code_alternatif,
+           tlo_libelle) %>% 
     tally() %>%
   ungroup() %>% 
-  pivot_wider(names_from = tlo_libelle, values_from = n) %>% 
-  purrr::set_names(c("Espèce", "L. fourche", "L. totale")) %>% 
+  pivot_wider(names_from = tlo_libelle,
+              values_from = n) %>% 
+  purrr::set_names(c("Espèce", "L. fourche", "L. totale", "Estimée d'après le poids")) %>% 
   arrange(-`L. totale`)
 
 obs_par_esp %>% 
   DT::datatable(rownames = FALSE, width = 400) %>% 
-  DT::formatCurrency(columns = c("L. fourche", "L. totale"),
+  DT::formatCurrency(columns = c("L. fourche", "L. totale", "Estimée d'après le poids"),
                      currency = "",
                      interval = 3,
                      mark = " ",
@@ -193,10 +197,12 @@ Quelle est la gamme de longueurs probables pour la `r mon_espece`, avec une prob
 Application de la fonction `qtp_seuils()`. Elle retourne un objet contenant deux éléments qui sont les bornes supérieure et inférieure.
 
 ```{r}
-seuils <- qtp_seuils(df = esp_lt_data,
-                     code_espece = mon_espece,
-                     variable = "mei_taille",
-                     seuil_densite = 0.01)
+seuils <- aspeQual::qtp_seuils(
+  df = esp_lt_data,
+  code_espece = mon_espece,
+  variable = "mei_taille",
+  seuil_densite = 0.01
+)
 
 seuils
 ```

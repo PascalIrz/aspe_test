@@ -75,6 +75,7 @@ data <- mef_creer_passerelle() %>%
   mef_ajouter_ope_date() %>% 
   select(mei_id,
          lop_id,
+         ope_id,
          tyl_libelle,
          pop_libelle,
          annee,
@@ -83,7 +84,8 @@ data <- mef_creer_passerelle() %>%
          mei_mesure_reelle,
          esp_code_alternatif) %>% 
   left_join(ref_espece %>%
-              select(esp_code_alternatif, esp_nom_commun))
+              select(esp_code_alternatif,
+                     esp_nom_commun))
 ```
 
 Les premières lignes du tableau :
@@ -165,7 +167,7 @@ mes_lots <- comptage %>%
 Elimination des lots insuffisants (et suppression des parties entre parenthèses dans les noms de stations pour les raccourcir).
 
 ```{r}
-data <- data %>% 
+data_lots <- data %>% 
   filter(lop_id %in% mes_lots) %>% 
   mutate(pop_libelle = str_replace(pop_libelle,
                                    pattern = " \\s*\\([^\\)]+\\)",
@@ -175,19 +177,24 @@ data <- data %>%
 
 ### Exemples graphiques
 
+```{r}
+n_lots <- 12 # choix du nb de graphiques pour le "top"
+```
+
+
 On peut représenter graphiquement les lots comptant le plus d'individus mesurés, en comparant les distributions entre ces individus et ceux dont la longueur a été estimée. Si l'algorithme d'estimation n'est pas biaisé, les distributions doivent se ressembler.
 
-Sélection d'un "top" des lots, ceux avec le plus d'individus mesurés.
+Sélection d'un "top" des lots, ceux avec le plus d'individus mesurés (n = `r n_lots` lots).
 
 ```{r}
 top_lots <- comptage %>%
   filter(lop_id %in% mes_lots) %>% 
   arrange(-t, -f) %>%
   filter(!is.na(f)) %>%
-  slice(1:12) %>%
+  slice(1:n_lots) %>%
   pull(lop_id)
 
-top_lots_data <- data %>%
+top_lots_data <- data_lots %>%
   filter(lop_id %in% top_lots)
 ```
 
@@ -203,7 +210,7 @@ graphiques <- map(.x = top_lots,
 
 Assemblage des graphiques
 
-```{r, fig.height = 12, fig.width = 10}
+```{r, fig.height = n_lots, fig.width = 10}
 qta_densite_comp_distri_lot_grille(liste_graphiques = graphiques,
                                    ncol = 3,
                                    nrow = 4)
@@ -225,10 +232,6 @@ On rajoute au tableau de données une colonne `mei_taille_alt` avec des mesures 
 - si l'individu n'a pas été mesuré (dégroupage), on prend la longueur d'un individu tiré aléatoirement parmi le sous-lot mesuré
 
 ```{r}
-
-```
-
-```{r}
 top_lots_data <- top_lots_data %>% 
   qta_ajouter_mei_taille_alt()
 ```
@@ -245,25 +248,22 @@ graphiques_ta <- map(.x = top_lots,
 On peut mettre côte à côte pour chacun des lots les graphiques issus du dégroupage actuel Aspe (colonne de gauche) et du dégroupage alternatif (colonne de droite).
 
 ```{r}
-# ordonancement des graphiques pour les mettre en vis-a-vis
+# assemblage des deux listes de graphiques en une seule
 graphiques_tot <- list(graphiques, graphiques_ta) %>% 
   unlist(recursive = FALSE)
 
-indices <- 1:24
-i <- list()
-for (indice in 1:12) {
-  bival <- c(indices[indice], indices[indice+12])
-  i <- c(i, bival)
-}
-i <- unlist(i)
+# ordonancement des graphiques pour mettre en vis-a-vis les deux graphiques correspondant
+# à un même lot. Par ex si 10 lots, on a 2 séries selon la méthode de dégroupage 
+# => total 20 graphiques qu'on veut ordonner dans l'ordre 1, 11, 2, 12, 3, 13 ...
+indices <- rbind(1:n_lots, (1 + n_lots):(2 * n_lots)) %>% c()
 
-graphiques_tot <- graphiques_tot[i]
+graphiques_tot <- graphiques_tot[indices]
 ```
 
-```{r, fig.height = 30, fig.width = 9}
+```{r, fig.height = 2.5 * n_lots, fig.width = 9}
 qta_densite_comp_distri_lot_grille(liste_graphiques = graphiques_tot,
                                    ncol = 2,
-                                   nrow = 12)
+                                   nrow = n_lots)
 ```
 
 >Il apparaît graphiquement que les écarts entre les distributions mesurées et dégroupées sont moindres avec la méthode alternative. Particulièrement quand le lot n'est pas vraiment unimodal.
@@ -349,15 +349,38 @@ tests_sig %>%
 
 >Le dégroupage par Aspe distord fortement les distributions et leurs variances. Les moyennes sont sensiblement moins impactées. En comparaison, la méthode alternative semble plus satisfaisante.
 
-# Impact sur les distributions des populations
+## Impact sur les distributions des populations
 
+On examine ici l'éventuelle influence de la méthode de dégroupage sur la distribution en longueur de la population au moment d'une opération d'achantillonnage, en gardant l'exemple des pêches correspondant `r n_lots` lots ci-dessus.
 
+A partir du jeu de données complet, on filtre pour ne conserver que les opérations et espèces qui nous intéressent.
 
 ```{r}
+mes_populations <- data %>%
+  filter(lop_id %in% top_lots) %>%
+  select(ope_id, esp_code_alternatif) %>%
+  distinct()
 
+data_populations <- mes_populations %>%
+  left_join(data) %>%
+  aspeQual::qta_ajouter_mei_taille_alt() %>%
+  select(
+    ope_id,
+    mei_id,
+    pop_libelle,
+    esp_nom_commun,
+    annee,
+    mei_mesure_reelle,
+    mei_taille,
+    mei_taille_alt
+  ) %>% 
+pivot_longer(cols = mei_taille:mei_taille_alt,
+             names_to = "degroupage",
+             values_to = "taille")
 ```
 
 ```{r}
-
+qta_densite_comp_distri_lot(df = data_populations,
+                            id_lot = )
 ```
 
