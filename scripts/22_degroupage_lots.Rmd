@@ -10,8 +10,10 @@ output:
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-options(knitr.kable.NA = '---')
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+options(knitr.kable.NA = "---")
 ```
 
 # Introduction
@@ -40,11 +42,15 @@ library(aspeQual)
 library(tidyverse)
 library(kableExtra)
 
-rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
-                                         pattern = "^tables")
+rdata_tables <- misc_nom_dernier_fichier(
+  repertoire = "../../../raw_data",
+  pattern = "^tables"
+)
 
-rdata_mei <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
-                                      pattern = "^mei")
+rdata_mei <- misc_nom_dernier_fichier(
+  repertoire = "../../../raw_data",
+  pattern = "^mei"
+)
 
 load(rdata_tables)
 load(rdata_mei)
@@ -61,64 +67,83 @@ Pour constituer le jeu de données, les étapes sont :
 - Ajout des lots de poissons et de leur type
 - Ajout du type de longueur
 - Remplacement des codes espèces internes de la base par les codes à trois lettres   
-- Ajout des mesures individuelles pour ne conserver que les mesures réelles et positives de longueur et masse   
-- Sélection des variables à conserver et dédoublonnage   
+- Ajout des mesures individuelles pour ne conserver que les mesures positives de longueur   
+- Sélection des variables à conserver et dédoublonnage
+- Ajout du nom commun des espèces
 
 
 ```{r}
-data <- mef_creer_passerelle() %>% 
-  mef_ajouter_lots() %>% 
-  mef_ajouter_type_lot() %>% 
-  mef_ajouter_mei() %>% 
+data <- mef_creer_passerelle() %>%
+  mef_ajouter_lots() %>%
+  mef_ajouter_type_lot() %>%
+  mef_ajouter_mei() %>%
   filter(mei_taille > 0) %>% # longueur positive
-  mef_ajouter_libelle() %>% 
-  mef_ajouter_ope_date() %>% 
-  select(mei_id,
-         lop_id,
-         ope_id,
-         tyl_libelle,
-         pop_libelle,
-         annee,
-         mei_taille,
-         mei_poids,
-         mei_mesure_reelle,
-         esp_code_alternatif) %>% 
-  left_join(ref_espece %>%
-              select(esp_code_alternatif,
-                     esp_nom_commun))
+  mef_ajouter_libelle() %>%
+  mef_ajouter_ope_date() %>%
+  select(
+    mei_id,
+    lop_id,
+    ope_id,
+    tyl_libelle,
+    pop_libelle,
+    annee,
+    mei_taille,
+    mei_mesure_reelle,
+    esp_code_alternatif
+  ) %>%
+  distinct() %>% # nécessaire pour éviter doublons / opérations sur plusieurs objectifs (réseaux)
+  left_join(ref_espece %>% # ajout du nom commun
+    select(
+      esp_code_alternatif,
+      esp_nom_commun
+    ))
 ```
 
 Les premières lignes du tableau :
 
 ```{r}
-data %>% 
-  head() %>% 
+data %>%
+  head() %>%
   DT::datatable()
 ```
 
 # Description des données
 
+La typologie des lots est la suivante :
+
 ```{r}
-ref_type_lot %>% 
-  select(tyl_libelle, tyl_libelle_sandre) %>% 
-  DT::datatable(rownames = F,
-                options = list(dom = 't'))
+ref_type_lot %>%
+  select(tyl_libelle, tyl_libelle_sandre) %>%
+  DT::datatable(
+    rownames = F,
+    options = list(dom = "t")
+  )
 ```
 
 Nombre d'individus selon le type de lot, et selon que la mesure a été réellement effectuée (mei_mesure_reelle = t) ou qu'il s'agit d'une longueur produite par l'algorithme de dégroupage :
 
 ```{r}
-data %>% 
-  group_by(tyl_libelle,
-           mei_mesure_reelle) %>% 
-  tally() %>% 
-  pivot_wider(names_from = mei_mesure_reelle,
-              values_from = n) %>% 
-  knitr::kable(format.args = list(big.mark = " ",
-                                  scientific = FALSE),
-               col.names = c("Type de lot",
-                             "Dégroupages",
-                             "Longueurs mesurées")) %>% 
+data %>%
+  group_by(
+    tyl_libelle,
+    mei_mesure_reelle
+  ) %>%
+  tally() %>%
+  pivot_wider(
+    names_from = mei_mesure_reelle,
+    values_from = n
+  ) %>%
+  knitr::kable(
+    format.args = list(
+      big.mark = " ",
+      scientific = FALSE
+    ),
+    col.names = c(
+      "Type de lot",
+      "Dégroupages",
+      "Longueurs mesurées"
+    )
+  ) %>%
   kable_paper("hover", full_width = T)
 ```
 
@@ -135,43 +160,46 @@ On va comparer les distributions des longueurs, sur un même lot, entre individu
 
 ```{r}
 comptage <- data %>%
-  filter(tyl_libelle == "S/L") %>% 
-  group_by(esp_code_alternatif,
-           lop_id,
-           mei_mesure_reelle) %>% 
-    tally() %>% 
-  ungroup() %>% 
-  pivot_wider(names_from = mei_mesure_reelle,
-              values_from = n)
+  filter(tyl_libelle == "S/L") %>%
+  group_by(
+    esp_nom_commun,
+    lop_id,
+    mei_mesure_reelle
+  ) %>%
+  tally() %>%
+  ungroup() %>%
+  pivot_wider(
+    names_from = mei_mesure_reelle,
+    values_from = n
+  )
 ```
 
 Extrait du tableau :
 
-```{r, fig.align = 'center'}
-comptage %>% 
-  sample_n(10) %>% 
-  DT::datatable(rownames = FALSE,
-                width = 5,
-                options = list(dom = 't'))
+```{r}
+comptage %>%
+  sample_n(10) %>%
+  DT::datatable(
+    rownames = FALSE,
+    colnames = c("Espèce", "N° lot", "Effectif non mesuré", "Effectif mesuré"),
+    width = 7,
+    options = list(dom = "t")
+  )
 ```
 
-Sélection des lots comptant suffisamment d'individus :
+Pour la suite, on sélectionne les lots comptant suffisamment d'individus (et suppression des parties entre parenthèses dans les noms de stations pour les raccourcir).
 
 ```{r}
-mes_lots <- comptage %>% 
-  filter(f > 29, t > 29) %>% 
+mes_lots <- comptage %>%
+  filter(f > 29, t > 29) %>%
   pull(lop_id)
-```
 
-
-Elimination des lots insuffisants (et suppression des parties entre parenthèses dans les noms de stations pour les raccourcir).
-
-```{r}
-data_lots <- data %>% 
-  filter(lop_id %in% mes_lots) %>% 
+data_lots <- data %>%
+  filter(lop_id %in% mes_lots) %>%
   mutate(pop_libelle = str_replace(pop_libelle,
-                                   pattern = " \\s*\\([^\\)]+\\)",
-                                   replacement = ""))
+    pattern = " \\s*\\([^\\)]+\\)",
+    replacement = ""
+  ))
 ```
 
 
@@ -184,11 +212,11 @@ n_lots <- 12 # choix du nb de graphiques pour le "top"
 
 On peut représenter graphiquement les lots comptant le plus d'individus mesurés, en comparant les distributions entre ces individus et ceux dont la longueur a été estimée. Si l'algorithme d'estimation n'est pas biaisé, les distributions doivent se ressembler.
 
-Sélection d'un "top" des lots, ceux avec le plus d'individus mesurés (n = `r n_lots` lots).
+On sélectionne donc un "top" des lots, ceux avec le plus d'individus mesurés (n = `r n_lots` lots).
 
 ```{r}
 top_lots <- comptage %>%
-  filter(lop_id %in% mes_lots) %>% 
+  filter(lop_id %in% mes_lots) %>%
   arrange(-t, -f) %>%
   filter(!is.na(f)) %>%
   slice(1:n_lots) %>%
@@ -198,31 +226,38 @@ top_lots_data <- data_lots %>%
   filter(lop_id %in% top_lots)
 ```
 
-Production des graphiques
+Puis on produit le graphique pour chacun des lots.
 
 ```{r, echo = F, include = FALSE}
-graphiques <- map(.x = top_lots,
-                  .f = qta_densite_comp_distri_lot,
-                  df = top_lots_data,
-                  variable = "mei_taille")
+graphiques <- map(
+  .x = top_lots,
+  .f = qta_gg_densite_comp_distri_lot,
+  df = top_lots_data,
+  variable = "mei_taille"
+)
 ```
 
 
-Assemblage des graphiques
+Enfin, on assemble les graphiques par lot.
 
 ```{r, fig.height = n_lots, fig.width = 10}
-qta_densite_comp_distri_lot_grille(liste_graphiques = graphiques,
-                                   ncol = 3,
-                                   nrow = 4)
+gg_liste_grille(
+  liste_graphiques = graphiques,
+  n_colonnes = 3,
+  n_lignes = 4,
+  titre_axe_x = "Longueur (mm)",
+  titre_axe_y = "Densité"
+)
 ```
 
->Les moyennes sont plutôt proches, cependant il apparaît assez clairement que les dispersions peuvent différer nettement. Les cas de bimodalité des valeurs mesurées ne se retrouvent pas lors du dégroupage.
+
+>Les moyennes sont plutôt proches, cependant il apparaît assez clairement que les dispersions peuvent différer nettement. Les cas de bimodalité des valeurs mesurées ne se retrouvent pas lors du dégroupage. Sur la partie gauche des graphiques (les valeurs faibles de longueur), la courbe marron est systématiquement au-dessus de la verte. Les effectifs sont donc sous-évalués dans les plus petites tailles lors du dégroupage. A l'inverse, en partie centrale des graphiques la courbe verte tend à être au-dessus de la marron, indiquant que le dégroupage surestime ces classes de taille. 
 
 ## Proposition d'algorithme de dégroupage alternatif
 
 ### Principe
 
-On peut remplacer l'algorithme employé par la base par un simple tirage aléatoire parmi les poissons mesurés. L'avantage est de ne pas comporter d'hypothèse quant à la distribution des données de longueur.
+Pour affecter une longueur à chaque poisson d'un lot "S/L" qui n'a pas été mesuré, opérer un simple tirage aléatoire parmi les poissons **du même lot** qui ont été mesurés. L'avantage est de ne pas comporter d'hypothèse quant à la distribution des données de longueur.
 
 ### Calcul
 
@@ -232,28 +267,30 @@ On rajoute au tableau de données une colonne `mei_taille_alt` avec des mesures 
 - si l'individu n'a pas été mesuré (dégroupage), on prend la longueur d'un individu tiré aléatoirement parmi le sous-lot mesuré
 
 ```{r}
-top_lots_data <- top_lots_data %>% 
+top_lots_data <- top_lots_data %>%
   qta_ajouter_mei_taille_alt()
 ```
 
 ### Comparaison graphique
 
 ```{r, echo = F, include = FALSE}
-graphiques_ta <- map(.x = top_lots,
-                     .f = qta_densite_comp_distri_lot,
-                     df = top_lots_data,
-                     variable = "mei_taille_alt")
+graphiques_ta <- map(
+  .x = top_lots,
+  .f = qta_gg_densite_comp_distri_lot,
+  df = top_lots_data,
+  variable = "mei_taille_alt"
+)
 ```
 
-On peut mettre côte à côte pour chacun des lots les graphiques issus du dégroupage actuel Aspe (colonne de gauche) et du dégroupage alternatif (colonne de droite).
+On peut mettre côte à côte pour chacun des lots les graphiques issus du dégroupage actuel Aspe (colonne de gauche) et du dégroupage alternatif (colonne de droite). Les longueurs moyennes sont indiquées par des lignes verticales. 
 
 ```{r}
 # assemblage des deux listes de graphiques en une seule
-graphiques_tot <- list(graphiques, graphiques_ta) %>% 
+graphiques_tot <- list(graphiques, graphiques_ta) %>%
   unlist(recursive = FALSE)
 
 # ordonancement des graphiques pour mettre en vis-a-vis les deux graphiques correspondant
-# à un même lot. Par ex si 10 lots, on a 2 séries selon la méthode de dégroupage 
+# à un même lot. Par ex si 10 lots, on a 2 séries selon la méthode de dégroupage
 # => total 20 graphiques qu'on veut ordonner dans l'ordre 1, 11, 2, 12, 3, 13 ...
 indices <- rbind(1:n_lots, (1 + n_lots):(2 * n_lots)) %>% c()
 
@@ -261,24 +298,28 @@ graphiques_tot <- graphiques_tot[indices]
 ```
 
 ```{r, fig.height = 2.5 * n_lots, fig.width = 9}
-qta_densite_comp_distri_lot_grille(liste_graphiques = graphiques_tot,
-                                   ncol = 2,
-                                   nrow = n_lots)
+gg_liste_grille(
+  liste_graphiques = graphiques_tot,
+  n_colonnes = 2,
+  n_lignes = n_lots
+)
 ```
 
->Il apparaît graphiquement que les écarts entre les distributions mesurées et dégroupées sont moindres avec la méthode alternative. Particulièrement quand le lot n'est pas vraiment unimodal.
+>Il apparaît graphiquement que les écarts entre les distributions mesurées et dégroupées sont moindres avec la méthode alternative. Particulièrement quand le lot n'est pas vraiment unimodal. L'alternative permet également de supprimer la sous-estimation des effectifs dans les plus petites tailles.
 
 ### Comparaison statistique
 
 Il s'agit ici d'évaluer laquelle des deux méthodes de dégroupage est la plus fidèle à la distribution de départ sur les individus réellement mesurés. On compare donc chacune des méthodes de dégroupage avec le distribution de départ en testant :
 
-- La similarité des distributions par un test non paramétrique de Kolmogorov-Smirnov
-- L'égalité des moyennes par un test de Student
-- L'égalité des variances par un test F
+1. La similarité des distributions par un test non paramétrique de Kolmogorov-Smirnov
+2. L'égalité des moyennes par un test de Student
+3. L'égalité des variances par un test F
 
 L'opération est réalisée sur les mêmes lots que les graphiques ci-dessus.
 
+**Lecture du tableau ci-dessous**
 
+Si la méthode de dégroupage restitue fidèlement la distribution des longueurs du sous-lot mesuré, tous les tests sont non-significatifs. A l'inverse, les trois hypothèses ci-dessus peuvent être rejetées aux seuils de 5% ($*$), 1% ($**$) et 0,1% ($***$).
 
 ```{r}
 # tests sur les données dégroupées par Aspe
@@ -302,60 +343,69 @@ degroupage_alt <- map(
 # assemblage
 degroupage <- degroupage_aspe %>%
   cbind(degroupage_alt %>%
-          select(
-            ta_ks = ks,
-            ta_student = student,
-            ta_variance = variance
-          ))
+    select(
+      ta_ks = ks,
+      ta_student = student,
+      ta_variance = variance
+    ))
 
 # mise en forme
 tests_sig <- degroupage %>%
-  mutate_at(vars(ks:ta_variance),
-            function(x) {
-              x <- case_when(x < 1e-3 ~ "(***)",
-                             x < 1e-2 ~ "(**)",
-                             x < 0.05 ~ "(*)",
-                             TRUE ~ NA_character_)
-            })
+  mutate_at(
+    vars(ks:ta_variance),
+    function(x) {
+      x <- case_when(
+        x < 1e-3 ~ "(***)",
+        x < 1e-2 ~ "(**)",
+        x < 0.05 ~ "(*)",
+        TRUE ~ NA_character_
+      )
+    }
+  )
 
 # presentation du tableau
 tests_sig %>%
   kbl(
     col.names = c(
-      'lop_id',
-      'Station',
-      'Espèce',
-      'Effectif mesuré',
-      'Effectif non mesuré',
-      'Distributions',
-      'Moyennes',
-      'Variances',
-      'Distributions',
-      'Moyennes',
-      'Variances'
+      "lop_id",
+      "Station",
+      "Espèce",
+      "Effectif mesuré",
+      "Effectif non mesuré",
+      "Distributions",
+      "Moyennes",
+      "Variances",
+      "Distributions",
+      "Moyennes",
+      "Variances"
     ),
-    align = c('r', 'l', 'l', 'r', 'r', rep('c', 6)),
+    align = c("r", "l", "l", "r", "r", rep("c", 6)),
     linesep = ""
   ) %>%
   kableExtra::kable_paper() %>%
-  kableExtra::column_spec(column = 6:11,
-                          background = "grey10") %>%
-  kableExtra::add_header_above(c(
+  kableExtra::column_spec(
+    column = 6:11,
+    background = "grey10"
+  ) %>%
+  kableExtra::add_header_above(
+    c(
     " " = 5,
     "Dégroupage Aspe" = 3,
-    "Tirage aléatoire" = 3
-  ))
+    "Dégroupage alternatif" = 3
+  )
+  )
 ```
 
->Le dégroupage par Aspe distord fortement les distributions et leurs variances. Les moyennes sont sensiblement moins impactées. En comparaison, la méthode alternative semble plus satisfaisante.
+>Le dégroupage par Aspe distord fortement les distributions, en particulier pour ce qui est de la dispersion (variance). Les moyennes sont sensiblement moins impactées. En comparaison, la méthode alternative semble nettement plus satisfaisante.
 
-## Impact sur les distributions des populations
+## Impact sur la distribution en taille des populations
 
-On examine ici l'éventuelle influence de la méthode de dégroupage sur la distribution en longueur de la population au moment d'une opération d'achantillonnage, en gardant l'exemple des pêches correspondant `r n_lots` lots ci-dessus.
+On examine ici l'éventuelle influence de la méthode de dégroupage sur la distribution en longueur de la population au moment d'une opération d'achantillonnage, en gardant l'exemple des pêches correspondant aux `r n_lots` lots ci-dessus.
 
-A partir du jeu de données complet, on filtre pour ne conserver que les opérations et espèces qui nous intéressent.
+A partir du jeu de données complet, on filtre pour ne conserver que les opérations et espèces qui nous intéressent. Le tableau est ensuite pivoté au format "long" plus facile à utiliser pour les graphiques.
 
 ```{r}
+# identification des ope_
 mes_populations <- data %>%
   filter(lop_id %in% top_lots) %>%
   select(ope_id, esp_code_alternatif) %>%
@@ -373,14 +423,37 @@ data_populations <- mes_populations %>%
     mei_mesure_reelle,
     mei_taille,
     mei_taille_alt
-  ) %>% 
-pivot_longer(cols = mei_taille:mei_taille_alt,
-             names_to = "degroupage",
-             values_to = "taille")
+  ) %>%
+  pivot_longer(
+    cols = mei_taille:mei_taille_alt,
+    names_to = "degroupage",
+    values_to = "mei_taille"
+  )
 ```
 
-```{r}
-qta_densite_comp_distri_lot(df = data_populations,
-                            id_lot = )
+
+
+```{r, fig.height = n_lots, fig.width = 10}
+x.y. <- data_populations %>%
+  select(ope_id, esp_nom_commun) %>%
+  distinct()
+
+mes_graphiques <- map2(
+  .x = x.y. %>% pull(ope_id),
+  .y = x.y. %>% pull(esp_nom_commun),
+  .f = qta_gg_histo_comp_degroupage,
+  df = data_populations,
+  x_var = "mei_taille",
+  groupe_var = "degroupage"
+)
+
+gg_liste_grille(
+  liste_graphiques = mes_graphiques,
+  n_colonnes = 3,
+  n_lignes = 4,
+  titre_axe_x = "Longueur (mm)",
+  titre_axe_y = "Effectif"
+)
 ```
 
+>Pour les opérations et espèces sélectionnées, la distribution en taille diffère entre les deux méthodes de dégroupage. On note en particulier que les histogrammes de la méthode alternative indiquent des effectifs plus importants dans les classes des petites tailles, ce qui est cohérent avec les observations réalisées à l'échelle des lots.
