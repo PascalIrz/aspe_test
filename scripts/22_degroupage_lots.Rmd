@@ -2,11 +2,16 @@
 title: "ASPE - Dégroupage des lots S/L"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+always_allow_html: true
 output:
   html_document:
     code_folding: hide
-    toc: true
-    toc_float: true    
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
 ---
 
 ```{r setup, include = FALSE}
@@ -85,6 +90,7 @@ data <- mef_creer_passerelle() %>%
     lop_id,
     ope_id,
     tyl_libelle,
+    pop_id,
     pop_libelle,
     annee,
     mei_taille,
@@ -113,7 +119,8 @@ La typologie des lots est la suivante :
 
 ```{r}
 ref_type_lot %>%
-  select(tyl_libelle, tyl_libelle_sandre) %>%
+  select(tyl_libelle,
+         tyl_libelle_sandre) %>%
   DT::datatable(
     rownames = F,
     options = list(dom = "t")
@@ -187,7 +194,7 @@ comptage %>%
   )
 ```
 
-Pour la suite, on sélectionne les lots comptant suffisamment d'individus (et suppression des parties entre parenthèses dans les noms de stations pour les raccourcir).
+Pour la suite, on sélectionne les lots comptant suffisamment d'individus (et suppression des parties entre parenthèses dans les noms de stations pour les raccourcir; plus pratique pour les graphiques).
 
 ```{r}
 mes_lots <- comptage %>%
@@ -226,9 +233,9 @@ top_lots_data <- data_lots %>%
   filter(lop_id %in% top_lots)
 ```
 
-Puis on produit le graphique pour chacun des lots.
+Puis on produit le graphique pour chacun des lots. On choisit un graphique de type "densité" car les effectifs sont trop différents entre le sous-lot mesuré et le sous-lot non mesuré pour qu'un histogramme soit lisible.
 
-```{r, echo = F, include = FALSE}
+```{r, echo = FALSE, include = FALSE}
 graphiques <- map(
   .x = top_lots,
   .f = qta_gg_densite_comp_distri_lot,
@@ -237,6 +244,14 @@ graphiques <- map(
 )
 ```
 
+```{r, eval = FALSE}
+graphiques <- map(
+  .x = top_lots,
+  .f = qta_gg_densite_comp_distri_lot,
+  df = top_lots_data,
+  variable = "mei_taille"
+)
+```
 
 Enfin, on assemble les graphiques par lot.
 
@@ -292,7 +307,9 @@ graphiques_tot <- list(graphiques, graphiques_ta) %>%
 # ordonancement des graphiques pour mettre en vis-a-vis les deux graphiques correspondant
 # à un même lot. Par ex si 10 lots, on a 2 séries selon la méthode de dégroupage
 # => total 20 graphiques qu'on veut ordonner dans l'ordre 1, 11, 2, 12, 3, 13 ...
-indices <- rbind(1:n_lots, (1 + n_lots):(2 * n_lots)) %>% c()
+indices <- rbind(1:n_lots,
+                 (1 + n_lots):(2 * n_lots)) %>%
+  c()
 
 graphiques_tot <- graphiques_tot[indices]
 ```
@@ -322,78 +339,45 @@ L'opération est réalisée sur les mêmes lots que les graphiques ci-dessus.
 Si la méthode de dégroupage restitue fidèlement la distribution des longueurs du sous-lot mesuré, tous les tests sont non-significatifs. A l'inverse, les trois hypothèses ci-dessus peuvent être rejetées aux seuils de 5% ($*$), 1% ($**$) et 0,1% ($***$).
 
 ```{r}
-# tests sur les données dégroupées par Aspe
-degroupage_aspe <- map(
-  .x = top_lots,
-  .f = qta_tests_1lot_1var,
-  df = top_lots_data,
-  variable = "mei_taille"
-) %>%
-  reduce(rbind)
+tests_sig <- qta_tests_distrib_sl(df = top_lots_data,
+                                  var_taille1 = "mei_taille",
+                                  var_taille2 = "mei_taille_alt",
+                                  sig = T)
+```
 
-# tests sur les données par le dégroupage alternatif
-degroupage_alt <- map(
-  .x = top_lots,
-  .f = qta_tests_1lot_1var,
-  df = top_lots_data,
-  variable = "mei_taille_alt"
-) %>%
-  reduce(rbind)
 
-# assemblage
-degroupage <- degroupage_aspe %>%
-  cbind(degroupage_alt %>%
-    select(
-      ta_ks = ks,
-      ta_student = student,
-      ta_variance = variance
-    ))
-
-# mise en forme
-tests_sig <- degroupage %>%
-  mutate_at(
-    vars(ks:ta_variance),
-    function(x) {
-      x <- case_when(
-        x < 1e-3 ~ "(***)",
-        x < 1e-2 ~ "(**)",
-        x < 0.05 ~ "(*)",
-        TRUE ~ NA_character_
-      )
-    }
-  )
-
+```{r}
 # presentation du tableau
-tests_sig %>%
-  kbl(
-    col.names = c(
-      "lop_id",
-      "Station",
-      "Espèce",
-      "Effectif mesuré",
-      "Effectif non mesuré",
-      "Distributions",
-      "Moyennes",
-      "Variances",
-      "Distributions",
-      "Moyennes",
-      "Variances"
-    ),
-    align = c("r", "l", "l", "r", "r", rep("c", 6)),
-    linesep = ""
-  ) %>%
-  kableExtra::kable_paper() %>%
-  kableExtra::column_spec(
-    column = 6:11,
-    background = "grey10"
-  ) %>%
-  kableExtra::add_header_above(
-    c(
-    " " = 5,
-    "Dégroupage Aspe" = 3,
-    "Dégroupage alternatif" = 3
-  )
-  )
+presentation_tests <- function(df)
+{
+  df %>%
+    kbl(
+      col.names = c(
+        "lop_id",
+        "Station",
+        "Espèce",
+        "Effectif mesuré",
+        "Effectif non mesuré",
+        "Distributions",
+        "Moyennes",
+        "Variances",
+        "Distributions",
+        "Moyennes",
+        "Variances"
+      ),
+      align = c("r", "l", "l", "r", "r", rep("c", 6)),
+      linesep = ""
+    ) %>%
+    kableExtra::kable_paper() %>%
+    kableExtra::column_spec(column = 6:11,
+                            background = "grey10") %>%
+    kableExtra::add_header_above(c(
+      " " = 5,
+      "Dégroupage Aspe" = 3,
+      "Dégroupage alternatif" = 3
+    ))
+}
+presentation_tests(tests_sig)
 ```
 
 >Le dégroupage par Aspe distord fortement les distributions, en particulier pour ce qui est de la dispersion (variance). Les moyennes sont sensiblement moins impactées. En comparaison, la méthode alternative semble nettement plus satisfaisante.
@@ -405,15 +389,15 @@ On examine ici l'éventuelle influence de la méthode de dégroupage sur la dist
 A partir du jeu de données complet, on filtre pour ne conserver que les opérations et espèces qui nous intéressent. Le tableau est ensuite pivoté au format "long" plus facile à utiliser pour les graphiques.
 
 ```{r}
-# identification des ope_
+# identification des ope_id et esp_code_alternatif correspondant aux lots ci-dessus
 mes_populations <- data %>%
   filter(lop_id %in% top_lots) %>%
   select(ope_id, esp_code_alternatif) %>%
   distinct()
 
 data_populations <- mes_populations %>%
-  left_join(data) %>%
-  aspeQual::qta_ajouter_mei_taille_alt() %>%
+  left_join(data) %>% # collecte des données uniquement sur nos populations
+  qta_ajouter_mei_taille_alt() %>%
   select(
     ope_id,
     mei_id,
@@ -431,13 +415,15 @@ data_populations <- mes_populations %>%
   )
 ```
 
-
+Pour chaque population échantillonnée (= un couple `ope_id` - `esp_nom_commun`), on produit l'histogramme comparant les méthodes de dégroupage.
 
 ```{r, fig.height = n_lots, fig.width = 10}
+# tableau contenant les couples ope_id - esp_nom_commun
 x.y. <- data_populations %>%
   select(ope_id, esp_nom_commun) %>%
   distinct()
 
+# production des graphiques qui sont stockés en une liste
 mes_graphiques <- map2(
   .x = x.y. %>% pull(ope_id),
   .y = x.y. %>% pull(esp_nom_commun),
@@ -447,6 +433,7 @@ mes_graphiques <- map2(
   groupe_var = "degroupage"
 )
 
+# production du graphique composé
 gg_liste_grille(
   liste_graphiques = mes_graphiques,
   n_colonnes = 3,
@@ -457,3 +444,76 @@ gg_liste_grille(
 ```
 
 >Pour les opérations et espèces sélectionnées, la distribution en taille diffère entre les deux méthodes de dégroupage. On note en particulier que les histogrammes de la méthode alternative indiquent des effectifs plus importants dans les classes des petites tailles, ce qui est cohérent avec les observations réalisées à l'échelle des lots.
+
+# Dégroupage alternatif sur l'ensemble des lots S/L
+
+## Dégroupage
+
+On peut opérer un dégroupage selon la méthode alternative sur l'ensemble des lots S/L de la base Aspe. Le `dataframe` se voit simplement ajouter une colonne `mei_taille_alt`.
+
+```{r}
+data <- data %>% 
+  qta_ajouter_mei_taille_alt()
+
+n_lots <- 24
+```
+
+## Vérification graphique
+
+Vérification que le dégroupage n'a pas rendu une absurdité, sur un tirage aléatoire de `r n_lots` lots :
+
+```{r, echo = F, include = FALSE}
+mes_lots <- data %>% 
+  filter(!is.na(mei_taille_alt)) %>% 
+  pull(lop_id) %>% 
+  unique() %>% 
+  sample(n_lots)
+
+graphiques <- map(
+  .x = mes_lots,
+  .f = qta_gg_densite_comp_distri_lot,
+  df = data,
+  variable = "mei_taille_alt"
+)
+```
+
+```{r, eval = F}
+mes_lots <- data %>% 
+  filter(!is.na(mei_taille_alt)) %>% 
+  pull(lop_id) %>% 
+  unique() %>% 
+  sample(n_lots)
+
+graphiques <- map(
+  .x = mes_lots,
+  .f = qta_gg_densite_comp_distri_lot,
+  df = data,
+  variable = "mei_taille_alt"
+)
+```
+
+Enfin, on assemble les graphiques par lot.
+
+```{r, fig.height = n_lots, fig.width = 10}
+gg_liste_grille(
+  liste_graphiques = graphiques,
+  n_colonnes = 3,
+  n_lignes = 8,
+  titre_axe_x = "Longueur (mm)",
+  titre_axe_y = "Densité"
+)
+```
+
+## Vérification statistique
+
+Sur ces lots, on peut appliquer les mêmes tests qu'auparavant.
+
+```{r}
+data %>% 
+  qta_tests_distrib_sl(lots = mes_lots,
+                       var_taille1 = "mei_taille",
+                       var_taille2 = "mei_taille_alt") %>% 
+  presentation_tests()
+```
+
+>Sans surprise, avec des lots comprenant des effectifs mesurés plus faibles que ceux du "top" étudié auparavant, on a moins de différences significatives. La comparaison entre les deux méthodes de dégroupage montre cependant systématiquement plus de différences significatives parmi les dégroupages opérés par Aspe.

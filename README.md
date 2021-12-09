@@ -1,4 +1,5 @@
 # test_aspe
+
 Essais du package et élaboration de la vignette.
 
 Dépôt qui sert à partager du code utilisant le package {aspe} afin de le tester et de recueillir des retours et de l'améliorer. Il a vocation à être supprimé quand le package sera accompagné d'une vignette satisfaisante.
