@@ -2,11 +2,23 @@
 title: "ASPE - Traitements sur les mesures individuelles"
 author: "Pascal Irz"
 date: "`r format(Sys.time(), 'Le %d %B %Y')`"
-output: html_document
+always_allow_html: true
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+options(knitr.kable.NA = "---")
 ```
 
 # Objectif
@@ -20,7 +32,7 @@ Il est donc ici nécessaire de faire appel aux mesures réalisées sur chaque in
 
 Le chargement du package `{aspe}` est supposé déjà réalisé (si besoin voir [ce support](https://rpubs.com/kamoke/713407)).
 
-Les fonctions dédiées au traitement des mesures individuelles sont nommées avec le préfiwe `'mei_'`. Celles dédiées à la mise en forme des données par `'mef_'`.
+Les fonctions dédiées au traitement des mesures individuelles sont nommées avec le préfixe `'mei_'`. Celles dédiées à la mise en forme des données par `'mef_'`.
 
 # Chargement des packages et des données
 
@@ -65,7 +77,9 @@ map(.x = ls(),
   DT::datatable()
 ```
 
-# Assemblage d'une "passerelle"
+# Mise en forme des données
+
+## Assemblage d'une "passerelle"
 
 Les données dont il y a besoin sont dispersées dans diverses tables. C'est le tableau "passerelle" qui sert à les relier.
 
@@ -87,12 +101,21 @@ data <- passerelle %>%
 
 ## Filtrage sur la méthode de prospection
 
-Dans la table `ref_protocole` on peut voir que les pêches complètes correspondent à la variable `pro_id` égale à `1`. Pour filtrer plus rapidement que montré dans les exemple ci-dessus, on peut filtrer sur cette méthode.
+```{r}
+ref_protocole %>% 
+  DT::datatable(rownames = F)
+```
+
+
+Dans la table `ref_protocole` on peut voir que les pêches d'inventaire correspondent aux 4 premières modalités de cette table. Pour filtrer sur ces méthodes :
 
 ```{r}
 data <- data %>%
   mef_ajouter_type_protocole() %>% 
-  filter(pro_libelle == "Pêche complète à un ou plusieurs passages") %>% 
+  filter(pro_libelle %in% c("Pêche complète à un ou plusieurs passages",
+                            "Pêche partielle par points (grand milieu)",
+                            "Pêche par ambiances",
+                            "Pêche partielle sur berge")) %>% 
   select(-pro_id)
 ```
 
@@ -106,7 +129,7 @@ data_ind <- data %>%
   mef_ajouter_ope_date() %>% 
   mef_ajouter_passage() %>% # numéro du passage pour éventuellement filtrer dessus
   mef_ajouter_lots() %>% 
-  mef_ajouter_esp_code_alternatif() %>% 
+  mef_ajouter_esp() %>% 
   mef_ajouter_mei() %>% 
   mef_ajouter_type_longueur() %>% 
   select(-obj_id,
@@ -114,9 +137,15 @@ data_ind <- data %>%
          -tlo_id) # suppression colonnes inutiles
 ```
 
-Blabla exliquer la signification des champs.
+>NB : le package propose une liste exhaustive des variables de la base avec leur signification.
 
-## Histogramme des longueurs pour une espèce à l'occasion d'une opération.
+```{r, eval = FALSE}
+data(dictionnaire)
+View(dictionnaire)
+```
+
+
+## Histogramme des longueurs lors d'une opération
 
 La fonction `gg_histo_longueur()` sert à produire l'histogramme des longueurs mesurées (ou estimées à partir des poids) des individus. Elle prend en entrée :
 
@@ -134,6 +163,52 @@ gg_histo_longueur(indiv_df = data_ind,
                   n_intervalles = 25)
 ```
 
+# Variabilité inter-annuelle des distributions
+
+On condidère ici qu'une population est une espèce donnée sur un point de prélèvement. On s'intéresse aux populations qui font l'objet d'un suivi pluri-annuel avec des mesures de longueur. Pour illustrer cette fonctionnalité graphique, prenons des populations avec minimum 10 années de suivi comprenant chacune 10 mesures de longueur.
+
+```{r}
+# les populations avec plus de 10 ans de données
+populations_10ans <- data_ind %>% 
+  group_by(pop_id,
+           pop_libelle,
+           esp_code_alternatif,
+           esp_nom_commun) %>% 
+    summarise(n_annees = n_distinct(annee)) %>% 
+    filter(n_annees > 9) %>% 
+  ungroup()
+
+# filtrage des données pour ne garder que les pops > 10 ans
+data_populations <- populations_10ans %>% 
+  left_join(data_ind)
+
+# parmi les pops > 10 ans, celles qui comprennent + de 410 individus
+populations_10_indiv <- data_populations %>% 
+  filter(mei_taille > 0) %>% 
+  group_by(pop_id,
+           pop_libelle,
+           esp_code_alternatif,
+           esp_nom_commun,
+           annee) %>% 
+    summarise(n_ind = n()) %>% 
+  ungroup %>% 
+  filter(n_ind > 9)
+
+# tirage aléatoire de 3 des pops avec + 10 ans + 10 indiv
+mes_populations <- populations_10ans %>% 
+  inner_join(populations_10_indiv) %>% 
+  select(pop_id:n_annees) %>% 
+  distinct() %>% 
+  sample_n(3)
+```
+
+
+```{r, fig.height = 10, results = 'hide'}
+map2(.x = mes_populations$pop_libelle,
+     .y = mes_populations$esp_nom_commun,
+     .f = gg_dyn_esp_pop,
+     df = data_populations)
+```
 
 
 

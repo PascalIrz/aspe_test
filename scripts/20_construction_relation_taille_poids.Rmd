@@ -115,7 +115,7 @@ tp_data <- mef_creer_passerelle() %>% # création de la passerelle
   mef_ajouter_type_lot() %>% # ajout du type de lot
   filter(tyl_libelle == "N") %>%  # type de lot correspondant aux mesures individuelles
   mef_ajouter_type_longueur() %>% # ajout du type de longueur
-  mef_ajouter_esp_code_alternatif() %>% # ajout des codes espèces à trois lettres
+  mef_ajouter_esp() %>% # ajout des codes et noms espèces
   mef_ajouter_mei() %>% # ajout mesures individuelles
   filter(mei_taille > 0 & # taille positive
          mei_poids > 0 & # poids positifs
@@ -177,7 +177,7 @@ La première étape, pour éviter que des *outliers* ne perturbent les analyses,
 
 #### Distribution des longueurs
 
-La fonction `qtp_histo()` permet de produire les graphiques de distribution des variables de taille et de poids.
+La fonction `qtp_histo()` du package `aspeQual` permet de produire les graphiques de distribution des variables de taille et de poids.
 
 
 
@@ -351,7 +351,7 @@ Poids(g) = `r exp(alpha) %>% format(scientific = FALSE)` x Longueur(cm)^`r beta`
 
 Graphiquement, on peut représenter la relation avec des axes arithmétiques ou bien log-transformés. Les courbes en rouge indiquent les valeurs prédites par le modèle. Elles sont contenues dans le modèle et on y accède par `mod$fitted.values`. Comme le modèle prédit $\log(Poids)$, pour obtenir le poids prédit on applique une exponentielle avec la fonction `exp()`.
 
-```{r, fig.width=9, class.source = 'fold-hide'}
+```{r, fig.width = 9, class.source = 'fold-hide'}
 esp_lt_data <- esp_lt_data %>% 
   cbind(predicted = exp(mod$fitted.values)) %>% # ajout des valeurs prédites
   arrange(mei_taille) # mise en ordre de taille (pour le geom_line())
@@ -643,8 +643,8 @@ Quand la détermination a été approximée au genre, c'est qu'il y a hésitatio
 ```{r}
 especes <- tp_data %>%
   select(esp_code_alternatif) %>% 
-  left_join(y = ref_espece %>% 
-     select(esp_code_alternatif, esp_nom_latin)) %>% 
+  mef_ajouter_esp() %>% 
+  select(esp_code_alternatif, esp_nom_latin) %>% 
   distinct() %>%
   mutate(esp_nom_latin = str_replace(esp_nom_latin, # suppression du contenu entre parenthèses
                                      pattern = " \\s*\\([^\\)]+\\)",
