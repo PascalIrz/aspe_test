@@ -1,0 +1,121 @@
+---
+title: "Portrait de station"
+author: "Pascal Irz"
+date: "`r format(Sys.time(), 'Le %d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+set.seed(seed = 123)
+```
+
+
+# Chargement des packages et des données
+
+```{r, eval = FALSE}
+library(aspe)
+library(tidyverse)
+
+load(file = "raw_data/tables_sauf_mei_2021_10_21_11_44_01.RData")
+load(file = "raw_data/mei_2021_10_21_11_44_01.RData")
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(aspe)
+library(tidyverse)
+
+rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                         pattern = "^tables")
+
+rdata_mei <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
+                                      pattern = "^mei")
+
+load(rdata_tables)
+load(rdata_mei)
+
+rm(rdata_tables, rdata_mei)
+```
+
+# Choix de la station
+
+Prenons pour que l'exemple soit intéressant le cas d'une station riche en espèce (+ de 12), appartenant au réseau hydrobiologique et piscicole (RHP), qui a été prospectée au moins 12 ans et l'est encore aujourd'hui.
+
+```{r}
+passerelle <- mef_creer_passerelle() %>%   
+  mef_ajouter_objectif() %>% 
+  mef_ajouter_ope_date() %>% 
+  mef_ajouter_lots
+
+ma_station <- passerelle %>% 
+  filter(obj_libelle == "RHP – Réseau Hydrobiologique Piscicole") %>% 
+  group_by(sta_id) %>%
+    summarise(n_annees = n_distinct(annee),
+              der_annee = max(annee),
+              n_esp = n_distinct(esp_code_alternatif)) %>% 
+  filter(n_annees > 12 &
+         der_annee == 2021 &
+         n_esp > 12) %>% 
+  pull(sta_id) %>% 
+  sample(1)
+```
+
+# Captures
+
+## Dynamique du peuplement
+
+```{r}
+captures <- passerelle %>% 
+  filter(sta_id == ma_station) %>% 
+  mef_ajouter_libelle() %>% 
+  mef_ajouter_lots() %>% 
+  mef_ajouter_esp()
+
+colo_ext <- captures %>% 
+  mef_colo_ext_pops()
+```
+
+```{r}
+gg_colo_ext_pops(colo_ext)
+```
+
+## Occurrence des espèces
+
+```{r}
+occurrences <- captures %>% 
+  mutate(n_annees_prospec = n_distinct(annee)) %>% 
+  select(esp_code_alternatif, annee, n_annees_prospec) %>% 
+  distinct() %>% 
+  group_by(esp_code_alternatif, n_annees_prospec) %>% 
+    summarise(n_annees_pres = n_distinct(annee)) %>% 
+  ungroup() %>% 
+  mutate(pc_pres = n_annees_pres / n_annees_prospec,
+         esp_code_alternatif = as.factor(esp_code_alternatif),
+         esp_code_alternatif = fct_reorder(esp_code_alternatif, pc_pres))
+
+ggplot(data = occurrences,
+       aes(x = esp_code_alternatif,
+           y = pc_pres,
+           alpha = pc_pres)) +
+  geom_bar(stat = "identity",
+           fill = "darkgreen",
+           ) +
+  coord_flip() +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "",
+       y = "Pourcentage de présence",
+       alpha = "") +
+  theme(legend.position = "none")
+```
+
+## Dynamique des tailles
+
+On peut s'intéresser aux principales espèces, par exemple celles qui sont toujours présentes.
+
+```{r}
+mes_especes <- occurrences %>% 
+  filter(pc_pres == 1) %>% 
+  pull(esp_code_alternatif) %>% 
+  as.character
+```
+
