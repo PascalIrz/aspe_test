@@ -71,21 +71,8 @@ library(tidyverse)
 
 On importe la totalité de la base en une fois, ce qui est bien pratique.
 
-```{r, eval = FALSE}
-file <- "C:/Users/pascal.irz/Documents/projets/ASPE/raw_data/aspe_20211215.sql.gz"
-
-imp_importer_dump_sql(fichier_dump = file)
-```
-
-
-
-```{r, eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
- dump <- misc_nom_dernier_fichier(
-   repertoire = "../../../raw_data",
-   pattern = "gz$"
- )
-
-imp_importer_dump_sql(fichier_dump = dump)
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+imp_importer_dump_sql(fichier_dump = "C:/Users/pascal.irz/Documents/projets/ASPE/raw_data/aspe_20211019.gz")
 ```
 
 L'opération prend environ une demi-heure. L'import peut produire des messages d'avertissement (`Warning`) de ce type, qui n'indiquent pas de problème :
