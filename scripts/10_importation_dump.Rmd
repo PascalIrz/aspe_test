@@ -53,7 +53,7 @@ Une fois la machine configurée, le package est téléchargeable depuis Github :
 devtools::install_github("pascalirz/aspe")
 ```
 
-Eventuellement cette commande vous retournera un message demandant de mettre à jour des packages. Acceptez au moins les mises à jour depuis le [CRAN](https://cran.r-project.org/).
+Eventuellement cette commande vous retournera un message demandant de mettre à jour des `packages`. Acceptez au moins les mises à jour depuis le [CRAN](https://cran.r-project.org/).
 
 
 # Activation du package `{aspe}`
@@ -98,7 +98,7 @@ Quand l'importation est terminée, une centaine de `dataframe` apparaissent dans
 
 Pour éviter d'avoir à répéter cet import, on peut en sauvegarder le résultat au format `.RData` de façon à y accéder plus rapidement par la suite. Comme la table `mesure_individuelle` pèse à elle seule la moitié du volume de la base, on choisit de la conserver dans un fichier à part.
 
-On peut utiliser la fonction `export_tables_rdata()` qui les nomme en fonction des dates et heures au moment de la sauvegarde en créant si nécessaire un sous-répertoire `/processed_data`.
+On peut utiliser la fonction `export_tables_rdata()` qui nomme les deux fichiers en fonction des dates et heures systèmes (pour éviter d'écraser malencontreusement d'anciens fichiers) et les sauvegarde par défaut dans un sous-répertoire `/processed_data` du répertoire de travail. Si celui-ci n'est pas pré-existant, il est créé.
 
 ```{r, message = FALSE, warning = FALSE}
 export_tables_rdata()
@@ -186,8 +186,16 @@ gdata::keep(operation,
             station,
             point_prelevement,
             sure = TRUE)
+```
 
-save.image(file = "processed_data/tables_selectionnees.RData")
+Pour ne sauvegarder que ces tables :
+
+```{r, eval = FALSE}
+save(operation,
+     operation_ipr,
+     station,
+     point_prelevement,
+     file = "processed_data/tables_selectionnees.RData")
 ```
 
 # Ouf !
