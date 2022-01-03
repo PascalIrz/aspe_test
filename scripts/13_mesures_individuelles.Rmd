@@ -5,7 +5,7 @@ date: "`r format(Sys.time(), 'Le %d %B %Y')`"
 always_allow_html: true
 output:
   html_document:
-    code_folding: hide
+    code_folding: show
     toc: yes
     toc_float: yes
   word_document:
@@ -18,6 +18,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       message = FALSE)
+
 options(knitr.kable.NA = "---")
 ```
 
@@ -60,20 +61,17 @@ load(rdata_mei)
 rm(rdata_tables, rdata_mei)
 ```
 
-
-
-
 Vérification de la présence des tables dans l'environnement.
 
 ```{r}
-map(.x = ls(),
+map(.x = ls()[sapply(ls(), function(x) any(is.data.frame(get(x))))], # liste des dataframes
     .f = function(x) {
       nom <- x
       lignes <- x %>% get() %>% nrow()
       colonnes <- x %>% get() %>% ncol()
       data.frame(nom, lignes, colonnes)
-    }) %>% 
-  reduce(rbind) %>% 
+    }) %>%
+  reduce(rbind) %>%
   DT::datatable()
 ```
 
@@ -92,8 +90,10 @@ passerelle <- mef_creer_passerelle()
 ```{r}
 id_stations_56 <- passerelle %>%
   mef_ajouter_dept() %>% # création du champ dept à partir du code Insee station (ou point si manquant)
-  filter(dept == '56') %>% # sélection des observations sur les numéros de dept
-  pull(sta_id) # extraction des identifiants des stations
+  filter(dept == '56' & # sélection des observations sur les numéros de dept
+         !is.na(sta_id)) %>% # suppression des sta_id manquants
+  pull(sta_id) %>%  # extraction des identifiants des stations
+  unique()
 
 data <- passerelle %>% 
   filter(sta_id %in% id_stations_56)
@@ -101,13 +101,15 @@ data <- passerelle %>%
 
 ## Filtrage sur la méthode de prospection
 
-```{r}
+Les libellés en clair des méthodes de prospection sont donnés dans le `dataframe` nommé `ref_protocole`.
+
+```{r, echo = FALSE}
 ref_protocole %>% 
   DT::datatable(rownames = F)
 ```
 
 
-Dans la table `ref_protocole` on peut voir que les pêches d'inventaire correspondent aux 4 premières modalités de cette table. Pour filtrer sur ces méthodes :
+On peut y voir que les pêches d'inventaire correspondent aux 4 premières modalités de cette table. Pour filtrer sur ces méthodes :
 
 ```{r}
 data <- data %>%
@@ -125,13 +127,13 @@ Il s'agit de compléter le jeu de données, qui ne contient à ce stade que des 
 
 ```{r}
 data_ind <- data %>%
-  mef_ajouter_libelle() %>% 
-  mef_ajouter_ope_date() %>% 
+  mef_ajouter_libelle() %>% # ajout nom station ou point
+  mef_ajouter_ope_date() %>% # date et année d'échantillonnage
   mef_ajouter_passage() %>% # numéro du passage pour éventuellement filtrer dessus
-  mef_ajouter_lots() %>% 
-  mef_ajouter_esp() %>% 
-  mef_ajouter_mei() %>% 
-  mef_ajouter_type_longueur() %>% 
+  mef_ajouter_lots() %>% # lots
+  mef_ajouter_esp() %>% # noms des espèces
+  mef_ajouter_mei() %>% # mesures individuelles
+  mef_ajouter_type_longueur() %>% # type de longueur mesurée
   select(-obj_id,
          -mei_id,
          -tlo_id) # suppression colonnes inutiles
@@ -165,7 +167,7 @@ gg_histo_longueur(indiv_df = data_ind,
 
 # Variabilité inter-annuelle des distributions
 
-On condidère ici qu'une population est une espèce donnée sur un point de prélèvement. On s'intéresse aux populations qui font l'objet d'un suivi pluri-annuel avec des mesures de longueur. Pour illustrer cette fonctionnalité graphique, prenons des populations avec minimum 10 années de suivi comprenant chacune 10 mesures de longueur.
+On considère ici qu'une population est une espèce donnée sur un point de prélèvement. On s'intéresse aux populations qui font l'objet d'un suivi pluri-annuel avec des mesures de longueur. Pour illustrer cette fonctionnalité graphique, prenons des populations avec minimum 10 années de suivi comprenant chacune 10 mesures de longueur.
 
 ```{r}
 # les populations avec plus de 10 ans de données
