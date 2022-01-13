@@ -20,6 +20,8 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE)
 
 options(knitr.kable.NA = "---")
+
+set.seed(seed = 123)
 ```
 
 # Objectif
@@ -169,6 +171,8 @@ gg_histo_longueur(indiv_df = data_ind,
 
 On considère ici qu'une population est une espèce donnée sur un point de prélèvement. On s'intéresse aux populations qui font l'objet d'un suivi pluri-annuel avec des mesures de longueur. Pour illustrer cette fonctionnalité graphique, prenons des populations avec minimum 10 années de suivi comprenant chacune 10 mesures de longueur.
 
+## Préparation et sélection des données
+
 ```{r}
 # les populations avec plus de 10 ans de données
 populations_10ans <- data_ind %>% 
@@ -184,7 +188,7 @@ populations_10ans <- data_ind %>%
 data_populations <- populations_10ans %>% 
   left_join(data_ind)
 
-# parmi les pops > 10 ans, celles qui comprennent + de 410 individus
+# parmi les pops > 10 ans, celles qui comprennent + de 10 individus
 populations_10_indiv <- data_populations %>% 
   filter(mei_taille > 0) %>% 
   group_by(pop_id,
@@ -204,12 +208,39 @@ mes_populations <- populations_10ans %>%
   sample_n(3)
 ```
 
+```{r}
+prov <- data_ind %>% 
+  filter(mei_taille > 0) %>% 
+  group_by(pop_id,
+           pop_libelle,
+           esp_code_alternatif,
+           esp_nom_commun,
+           annee) %>% 
+    summarise(n_ind = n()) %>% 
+  filter(n_ind > 9) %>% 
+  group_by(pop_id,
+           pop_libelle,
+           esp_code_alternatif,
+           esp_nom_commun) %>% 
+    summarise(n_annees = n_distinct(annee)) %>% 
+    filter(n_annees > 9) %>% 
+  ungroup() %>% 
+  sample_n(size = 3)
+  
+```
+```{r, fig.height = 10, results = 'hide'}
+# map2(.x = mes_populations$pop_libelle,
+#      .y = mes_populations$esp_nom_commun,
+#      .f = gg_dyn_esp_pop,
+#      df = data_populations)
+```
 
 ```{r, fig.height = 10, results = 'hide'}
-map2(.x = mes_populations$pop_libelle,
-     .y = mes_populations$esp_nom_commun,
+map2(.x = prov$pop_libelle,
+     .y = prov$esp_nom_commun,
      .f = gg_dyn_esp_pop,
-     df = data_populations)
+     df = data_populations,
+     seuil = 0.01)
 ```
 
 

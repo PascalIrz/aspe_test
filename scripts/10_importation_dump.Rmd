@@ -78,11 +78,12 @@ imp_importer_dump_sql(fichier_dump = file)
 ```
 
 
+>NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
 
 ```{r, eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
- dump <- misc_nom_dernier_fichier(
-   repertoire = "../../../raw_data",
-   pattern = "gz$"
+dump <- misc_nom_dernier_fichier(
+  repertoire = "../../../raw_data",
+  pattern = "gz$"
  )
 
 imp_importer_dump_sql(fichier_dump = dump)
@@ -104,7 +105,6 @@ On peut utiliser la fonction `export_tables_rdata()` qui nomme les deux fichiers
 export_tables_rdata()
 ```
 
->NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
 
 ## Cas 2 : votre machine a moins de 16Go de RAM
 
