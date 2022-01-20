@@ -78,7 +78,6 @@ imp_importer_dump_sql(fichier_dump = file)
 ```
 
 
->NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
 
 ```{r, eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
 dump <- misc_nom_dernier_fichier(
@@ -105,6 +104,7 @@ On peut utiliser la fonction `export_tables_rdata()` qui nomme les deux fichiers
 export_tables_rdata()
 ```
 
+>NB : La fonction `importer_dump_sql()` accepte en entrée aussi bien le fichier compressé que décompressé.
 
 ## Cas 2 : votre machine a moins de 16Go de RAM
 
@@ -175,7 +175,7 @@ aspe::export_tables_rdata()
 ```
 
 ```{r, eval = TRUE}
-aspe::export_tables_rdata(repertoire = "../processed_data")
+aspe::export_tables_rdata(repertoire = "../../../raw_data")
 ```
 
 Si l'on souhaite ne conserver qu'une partie des `dataframe` afin d'y voir plus clair, on peut effectuer une sélection avec la fonction `keep()` du package `{gdata}`, à installer si besoin.
@@ -198,4 +198,25 @@ save(operation,
      file = "processed_data/tables_selectionnees.RData")
 ```
 
+Si l'on veut sauvegarder toutes les tables en csv :
+
+```{r, eval = FALSE}
+  # identification des dataframes
+  dfs_noms <- ls()[sapply(ls(), function(x) class(get(x)) == 'data.frame')]
+
+  # création d'une liste contenant les dataframes
+  dfs_liste <- mget(dfs_noms)
+  
+  # création du chemin et des noms des fichiers à sauvegarder
+  repertoire <- "../processed_data/csv/"
+  dfs_noms <- paste0(repertoire, dfs_noms, ".csv")
+
+  # sauvegarde
+  pwalk(.l = list(dfs_liste, dfs_noms),
+        .f = write_excel_csv2)
+```
+
+
 # Ouf !
+
+
