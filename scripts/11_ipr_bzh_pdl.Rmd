@@ -66,10 +66,11 @@ Pour simplifier les différents traitements et éviter d'avoir à reproduire à 
 
 ```{r}
 passerelle <- mef_creer_passerelle()
+
 names(passerelle)
 ```
 
-Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune) au moyen de la fonction `mef_select_dept()`.
+Comme cette table est assez importante (`r nrow(passerelle)` lignes) il est utile de la restreindre au périmètre qui nous intéresse. Ici, nous allons effectuer une sélection sur le département (codé par les deux premiers chiffres du code Insee de la commune) au moyen de la fonction `mef_ajouter_dept()`.
 
 
 ```{r}
@@ -78,13 +79,11 @@ passerelle <- passerelle %>%
   filter(dept %in% c(22, 29, 35, 56))
 ```
 
->Le package {aspe} permet aussi effectuer une [sélection géographique](https://rpubs.com/kamoke/716322), par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
+>NB Le package {aspe} permet aussi effectuer une [sélection géographique](https://rpubs.com/kamoke/716322), par exemple sur la base des contours d'un bassin. Dans ce cas, on utilise un polygone pour faire la sélection (ne sont conservées que les observations à l'intérieur).
 
-On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP.
+On peut aussi sélectionner uniquement les opérations réalisées dans le cadre des réseaux, ici RCS, RHP et RRP, au moyen de la fonction `mef_ajouter_objectif()` et des intitulés de la table `ref_objectif`. 
 
-Les identifiants correspondant à chacun des réseaux se trouvent dans le champ `obj_id` de la table `ref_objectif`.
-
-```{r}
+```{r, echo = FALSE}
 ref_objectif %>% 
   select(obj_id, obj_libelle) %>% 
   arrange(obj_id) %>% 
@@ -94,7 +93,10 @@ ref_objectif %>%
 
 ```{r}
 passerelle <- passerelle %>%
-  mef_select_objectif(objectif = c(3, 6, 4))
+  mef_ajouter_objectif() %>% 
+  filter(obj_libelle %in% c("RCS – Réseau de Contrôle de Surveillance",
+                            "RRP – Réseau de Référence Pérenne",
+                            "RHP – Réseau Hydrobiologique Piscicole"))
 ```
 
 # Bilan des IPR par station
@@ -107,10 +109,10 @@ ipr <- passerelle %>%
   mef_ajouter_ope_date() %>% 
   filter(ope_date > lubridate::dmy("01/01/2010"),
          ope_date < lubridate::dmy("31/12/2020")) %>% 
-  left_join(station %>%
-              select(sta_id,
-                     dept = sta_com_code_insee)) %>% 
-  mutate(dept = str_sub(dept, 1, 2)) %>% 
+  # left_join(station %>%
+  #             select(sta_id,
+  #                    dept = sta_com_code_insee)) %>% 
+  # mutate(dept = str_sub(dept, 1, 2)) %>% 
   mef_ajouter_libelle() %>% 
   droplevels()
 ```
@@ -152,6 +154,7 @@ Première étape : structuration du tableau.
 ```{r, eval = TRUE}
 data <- passerelle %>% 
   ipr_formater_pour_macro(date_debut = '01/01/2020')
+
 names(data)
 ```
 
@@ -159,7 +162,8 @@ Seconde étape : Sélection et renommage des variables.
 
 ```{r, eval = FALSE, echo = TRUE}
 data <- data %>% 
-  ipr_renommer_pour_macro(fichier_macro = "raw_data/MacroIPR_Sortie.xlsx")
+  ipr_renommer_pour_macro(fichier_macro = "../raw_data/MacroIPR_Sortie.xlsx")
+
 names(data)
 ```
 
