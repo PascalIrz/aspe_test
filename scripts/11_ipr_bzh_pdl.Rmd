@@ -36,7 +36,7 @@ rdata_tables <- misc_nom_dernier_fichier(repertoire = "../../../raw_data",
 load(rdata_tables)
 ```
 
-La dernière date de saisie / modification / opération dans la base est le `r format(misc_derniere_date(), '%d %B %Y')`.
+La dernière date de saisie ou de modification d'une opération dans la base utilisée dans le présent tutoriel est le `r format(misc_derniere_date(), '%d %B %Y')`.
 
 # Grandes lignes de l'analyse
 
@@ -107,12 +107,7 @@ On va utiliser la passerelle pour assurer le lien entre des informations contenu
 ipr <- passerelle %>% 
   mef_ajouter_ipr() %>% 
   mef_ajouter_ope_date() %>% 
-  filter(ope_date > lubridate::dmy("01/01/2010"),
-         ope_date < lubridate::dmy("31/12/2020")) %>% 
-  # left_join(station %>%
-  #             select(sta_id,
-  #                    dept = sta_com_code_insee)) %>% 
-  # mutate(dept = str_sub(dept, 1, 2)) %>% 
+  filter(ope_date > lubridate::dmy("01/01/2005")) %>% 
   mef_ajouter_libelle() %>% 
   droplevels()
 ```
@@ -196,8 +191,8 @@ Création du sous-jeu de données filtré pour le graphique.
 
 ```{r, fig.width = 10, fig.height = 14}
 ipr_dept <- ipr %>%
-  filter(dept == mon_dept,   # filtrage sur le département
-         annee > 2009) %>%   # filtrage sur la date
+  filter(dept == mon_dept) %>%  # filtrage sur le département
+            # filtrage sur la date
   mef_filtrer_nb_mini_annees(nb_mini_annees = 5, # suppression des points avec moins de 5 années
                              var_id = "pop_id") %>% 
   select(pop_libelle,
@@ -213,6 +208,48 @@ ipr_dept %>%
   head() %>%
   DT::datatable()
 ```
+Pour les graphiques IPR il est utile d'affecter à chaque classe de qualité un code couleur. On peut simplement ajouter une colonne au référentiel des classes avec la fonction `ipr_completer_classes_couleur()`.
+
+```{r}
+classe_ipr <- classe_ipr %>% 
+  ipr_completer_classes_couleur()
+```
+
+Graphique pour une station :
+
+```{r}
+gg_ipr_station(df_ipr = ipr_dept,
+               var_id_sta = pop_libelle,
+               station_sel = c("TRIEUX à PLESIDY"),
+               sup_500m = FALSE)
+
+```
+
+
+Pour un groupe de stations comme le département, on utilise la même fonction en indiquant plusieurs identifiants de station dans l'argument `station_sel`.
+
+```{r, fig.width = 10, fig.height = 10}
+mes_pops <- ipr_dept %>% 
+ pull(pop_libelle) %>% 
+ unique()
+
+mes_pops
+```
+
+On peut choisir de changer l'orientation de l'axe des ordonnées (IPR) avec l'argument `inv_y = FALSE`.
+
+```{r, fig.width = 10, fig.height = 10}
+gg_ipr_station(df_ipr = ipr_dept,
+               var_id_sta = pop_libelle,
+               station_sel = mes_pops,
+               sup_500m = FALSE,
+               inv_y = FALSE)
+
+
+```
+
+
+
 
 Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
 
