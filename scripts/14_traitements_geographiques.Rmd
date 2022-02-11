@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
 Ce tutoriel montre quelques exemples de traitements géographiques à partir de la base Aspe, afin de :
 
 - créer des objets géographiques à partir des tables de la base
-- opérer des sélections géographiques (points et stations contenus dans un polygone) 
+- opérer des sélections géographiques (points et stations contenus dans des polygones) 
 - reprojeter pour homogénéiser les systèmes de coordonnées qui coexistent dans la base
 - produire des cartes
 
@@ -108,10 +108,10 @@ On emploie la fonction `geo_convertir_coords_df()` qui donne en sortie un `dataf
 
 ```{r, eval = TRUE}
 coords_wgs84 <- geo_convertir_coords_df(df = station,
-                                        var_x = "sta_coordonnees_x",
-                                        var_y = "sta_coordonnees_y",
-                                        var_id = "sta_id",
-                                        var_crs_initial = "typ_code_epsg",
+                                        var_x = sta_coordonnees_x,
+                                        var_y = sta_coordonnees_y,
+                                        var_id = sta_id,
+                                        var_crs_initial = typ_code_epsg,
                                         crs_sortie = 4326) %>%
   rename(x_wgs84 = X, y_wgs84 = Y)
 ```
@@ -151,63 +151,54 @@ station_geo <- station %>%
                crs = 4326)
 ```
 
-Visualisation.
+Visualisation d'un échantillon de 1000 stations.
 
 ```{r, fig.width = 10}
-mapview::mapview(station_geo)
+mapview::mapview(station_geo %>% sample_n(1000))
 ```
 
 Il y a bien quelques points aberrants mais c'est cohérant dans l'ensemble.
 
 ## Sélection géographique
 
-Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, il faut un polygone qui dessine les contours de la région. Celui-ci doit être dans le même système de coordonnées que les stations, donc en WGS84, identifié par son [code EPSG]() qui est égal à 4326. 
+Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, on emploie les polygones de contour des départements. Ceux-ci doivent être dans le même système de coordonnées que les stations, donc en WGS84, identifié par son [code EPSG]() qui est égal à 4326.
 
 ### Téléchargement
 
-Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `osm_depts_tod()` du package `{tod}`. Il serait logique de choisir directement le WGS84 comme CRS de sortie, mais l'opération de fusion des 4 départements de la région avec la fonction `osm_creer_polygone_region` du package `{tod}`. On va donc importer les départements en Lambert 93 (EPSG = 2154), puis les fusionner en une région qui sera enfin convertie en WGS84 (EPSG = 4326).
+Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `tgeo_osm_adm()` du package `{tod}`. Le CRS de sortie est WGS84.
 
 ```{r, eval = FALSE, echo = TRUE}
-url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-depts <- tod::osm_depts_tod(url = url_depts,
-                            repertoire = "raw_data",
-                            crs_sortie = 2154)
+# url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
+# depts <- tod::tgeo_osm_adm(url = url_depts,
+#                            repertoire_donnees_brutes = "raw_data")
 ```
 
-```{r, eval = TRUE, echo = FALSE}
+```{r, eval = TRUE, echo = TRUE}
 url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-depts <- tod::osm_depts_tod(url = url_depts,
-                            repertoire = "../raw_data",
-                            crs_sortie = 2154)
-```
-
-### Création d'un polygone pour la région
-
-Il s'agit ici de créer un polygone unique de la région englobant les départements choisis et entouré d'un buffer pour éviter le risque de "perdre" des données en bordure de région (il y en a car les cours d'eau servent fréquemment à délimiter les départements donc les régions). Le paramètre `distance_buffer` est en kilomètres.
-
-```{r}
-region <- tod::osm_creer_polygone_region(departements_sf = depts,
-                                         departements_selectionnes = c(22, 29, 56, 35),
-                                         intitule_region = "Bretagne",
-                                         distance_buffer = 0.1) %>% 
-  sf::st_transform(crs = 4326) # reprojection en wgs84 comme les stations
-
+depts <- tod::tgeo_osm_adm(url = url_depts,
+                           repertoire = "raw_data")
 ```
 
 ### Sélection
 
-La fonction `st_join()` du package `{sf}` permet de sélectionner l'intersection entre le polygone de la région et les points des stations.
+On va d'abord attribuer à chaque station son département, puis filtrer sur les 4 départements de la région. 
 
 ```{r}
+# les départements sélectionnés
+mes_depts <- depts %>% 
+  filter(code_insee %in% c("22", "29", "35", "56"))
+
+# attribution et filtre
 station_bzh <- station_geo %>% 
-  sf::st_join(region) %>%
-  filter(!is.na(region))
+  aspe::geo_attribuer(mes_depts) %>% 
+  filter(!is.na(code_insee))
 ```
 
-Visualisation.
+### Visualisation
 
 ```{r}
-mapview::mapview(region,
+mapview::mapview(mes_depts,
+                 zcol = "code_insee",
                  alpha.regions = 0.1,
                  map.types = c("OpenStreetMap",
                                "CartoDB.Positron",
@@ -216,24 +207,10 @@ mapview::mapview(region,
                                "OpenTopoMap")) +
   mapview::mapview(station_bzh,
                    alpha = 0.9,
+                   cex = 0.1,
                    col.regions = 'blue')
 ```
 
-La sélection ayant bien fonctionné, on peut restreindre la table `station` aux stations de la région. On extrait des coordonnées à partir de l'objet géographique `sf` au moyen de la fonction `st_coordinates()` du package `sf`.
-
-```{r}
-# dataframe des coordonnées 
-coords <- station_bzh %>%
-  sf::st_coordinates() %>%
-  as.data.frame() %>%
-  purrr::set_names(c("sta_x_wgs84", "sta_y_wgs84"))
-
-# remplacement de l'ancien df "station" France entière par celui restreint à la région 
-station <- station_bzh %>%
-  sf::st_drop_geometry() %>% # suppression de la géométrie (passage en dataframe) 
-  bind_cols(coords) %>% # ajout des colonnes de coordonnées
-  select(-region)
-```
 
 # Reprojection des points de prélèvement
 
@@ -249,19 +226,19 @@ point_prelevement <- point_prelevement %>%
 
 # création du df des coordonnées en XGS84
 coords_wgs84 <- geo_convertir_coords_df(df = point_prelevement,
-                                        var_x = "pop_coordonnees_x",
-                                        var_y = "pop_coordonnees_y",
-                                        var_id = "pop_id",
-                                        var_crs_initial = "typ_code_epsg",
+                                        var_x = pop_coordonnees_x,
+                                        var_y = pop_coordonnees_y,
+                                        var_id = pop_id,
+                                        var_crs_initial = typ_code_epsg,
                                         crs_sortie = 4326) %>%
-  rename(pop_x_wgs84 = X, pop_y_wgs84 = Y)
+  rename(pop_x_wgs84 = X,
+         pop_y_wgs84 = Y)
 
 # ajout au df point_prelevement des coordonnées WGS84
 point_prelevement <- point_prelevement %>%
   left_join(y = coords_wgs84) %>%
   select(-(pop_com_code_insee_wama:pop_fog_id_cerema),
          -(pop_uti_id:typ_code_epsg))
-
 
 # création d'un objet "sf" des points
 point_prelevement_geo <- point_prelevement %>%
@@ -270,30 +247,23 @@ point_prelevement_geo <- point_prelevement %>%
 
 # sélection des points qui sont dans la région
 point_prelevement_bzh <- point_prelevement_geo %>% 
-  sf::st_join(region) %>%
-  filter(!is.na(region))
+  aspe::geo_attribuer(mes_depts) %>% 
+  filter(!is.na(code_insee))
 
 # visualisation
-mapview::mapview(point_prelevement_bzh, alpha = 0.9, 
+mapview::mapview(mes_depts,
+                 zcol = "code_insee",
+                 alpha.regions = 0.1,
                  map.types = c("OpenStreetMap",
                                "CartoDB.Positron",
                                "CartoDB.DarkMatter",
                                "Esri.WorldImagery",
-                               "OpenTopoMap"))
+                               "OpenTopoMap")) +
+  mapview::mapview(point_prelevement_bzh,
+                   alpha = 0.9,
+                   cex = 0.1,
+                   col.regions = 'blue')
 ```
 
-On termine comme pour les stations :
 
-```{r, eval = FALSE}
-coords <- point_prelevement_bzh %>%
-  sf::st_coordinates() %>%
-  as.data.frame() %>%
-  purrr::set_names(c("pop_x_wgs84", "pop_y_wgs84"))
-
-point_prelevement <- point_prelevement_bzh %>%
-  sf::st_drop_geometry() %>%
-  bind_cols(coords) %>%
-  select(-region)
-
-```
 
