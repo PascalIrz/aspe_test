@@ -192,8 +192,7 @@ Création du sous-jeu de données filtré pour le graphique.
 ```{r, fig.width = 10, fig.height = 14}
 ipr_dept <- ipr %>%
   filter(dept == mon_dept) %>%  # filtrage sur le département
-            # filtrage sur la date
-  mef_filtrer_nb_mini_annees(nb_mini_annees = 5, # suppression des points avec moins de 5 années
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 7, # suppression des points avec moins de 7 années
                              var_id = "pop_id") %>% 
   select(pop_libelle,
          pop_id,
@@ -212,58 +211,44 @@ Pour les graphiques IPR il est utile d'affecter à chaque classe de qualité un 
 
 ```{r}
 classe_ipr <- classe_ipr %>% 
-  ipr_completer_classes_couleur()
+  ip_completer_classes_couleur()
 ```
 
 Graphique pour une station :
 
 ```{r}
-gg_ipr_station(df_ipr = ipr_dept,
-               var_id_sta = pop_libelle,
-               station_sel = c("TRIEUX à PLESIDY"),
-               sup_500m = FALSE)
+gg_temp_ipr(df_ipr = ipr_dept,
+            var_id_sta = pop_libelle,
+            station_sel = c("TRIEUX à PLESIDY"),
+            var_ipr = ipr,
+            sup_500m = FALSE)
 
 ```
 
+Par défaut l'axe des ordonnées est orienté vers le bas (il est inversé pr rapport à un graphique "classique") donc plus les points sont en haut du graphique plus la qualité du milieu est élevée. On peut choisir de changer l'orientation de l'axe des ordonnées (IPR) avec l'argument `inv_y = FALSE`.
 
-Pour un groupe de stations comme le département, on utilise la même fonction en indiquant plusieurs identifiants de station dans l'argument `station_sel`.
+```{r}
+gg_temp_ipr(df_ipr = ipr_dept,
+            var_id_sta = pop_libelle,
+            station_sel = c("TRIEUX à PLESIDY"),
+            var_ipr = ipr,
+            sup_500m = FALSE,
+            inv_y = FALSE)
+
+```
+
+Pour sélectionner un groupe de stations, on utilise la même fonction en indiquant plusieurs identifiants de station dans l'argument `station_sel`. Sinon, elles sont toutes conservées. 
 
 ```{r, fig.width = 10, fig.height = 10}
-mes_pops <- ipr_dept %>% 
- pull(pop_libelle) %>% 
- unique()
+mon_graphique <-
+  gg_temp_ipr(
+    df_ipr = ipr_dept,
+    var_id_sta = pop_libelle,
+    var_ipr = ipr,
+    sup_500m = FALSE
+  )
 
-mes_pops
-```
-
-On peut choisir de changer l'orientation de l'axe des ordonnées (IPR) avec l'argument `inv_y = FALSE`.
-
-```{r, fig.width = 10, fig.height = 10}
-gg_ipr_station(df_ipr = ipr_dept,
-               var_id_sta = pop_libelle,
-               station_sel = mes_pops,
-               sup_500m = FALSE,
-               inv_y = FALSE)
-
-
-```
-
-
-
-
-Pour produire le graphique "en treillis" sur un jeu de stations, la fonction `ipr_grapher_plusieurs_stations()` offre la possibilité de :
-
-- filtrer les données pour préciser la période (arguments `premiere_annee` et `derniere_annee`) et les identifiants des stations (`stations_id`)
-- filtrer les stations pour ne retenir que celles avec suffisamment d'années de données (`nb_mini_annees`)
-- ajouter un titre au graphique (`titre`)
-- modifier la mise en forme du graphique en fixant une limite supérieure à l'axe des ordonnées (IPR) pour éviter qu'une observation extrême nuise à la lisibilité de l'ensemble (`max_axe_y`), en choisissant le nombre de colonnes de graphiques (`nb_colonnes`) et choisissant une palette de couleurs à associer aux modalités des classes d'IPR
-
-
-```{r, fig.width = 10, fig.height = 14}
-mon_graphique <- ipr_grapher_plusieurs_stations(ipr_df = ipr_dept,
-                                                titre = mon_dept,
-                                                max_axe_y = 40)
-mon_graphique # affichage à l'écran
+mon_graphique
 ```
 
 Si l'on veut sauvegarder le graphique (ici dans le sous-répertoire `"processed_data"`), il faut utiliser la fonction `ggsave()` Le choix de l'extension choisie ("png", "jpg", ".bmp") détermine le format de sortie.
@@ -307,13 +292,12 @@ depts_libelles <- departement %>%
 depts_libelles
 ```
 
-Filtrage du jeu de données aux départements concernés, à partir de 2010 et en excluant les stations avec moins de 5 années de données.
+Filtrage du jeu de données aux départements concernés, en excluant les stations avec moins de 7 années de données.
 
 ```{r}
 data <- ipr %>%
-  filter(dept %in% mes_depts,
-         annee > 2009) %>% 
-  mef_filtrer_nb_mini_annees(nb_mini_annees = 5,
+  filter(dept %in% mes_depts) %>% 
+  mef_filtrer_nb_mini_annees(nb_mini_annees = 7,
                              var_id = "pop_id")
 ```
 
@@ -324,22 +308,23 @@ data_par_dept <- split(x = data,
                        f = data$dept)
 ```
 
-Production des graphiques. La fonction `map2()` prend en arguments la fonction à appliquer ainsi que deux listes contenant les arguments de la fonction :
+Production des graphiques. La fonction `map()` prend en arguments la fonction à appliquer ainsi que deux listes contenant les arguments de la fonction :
 
-- Fonction à appliquer : `.f = ipr_grapher_plusieurs_stations`
-- Première liste, celle des `dataframe` : `.x = data_par_dept`
-- Seconde liste, celle des titres des graphiques : `.y = depts_libelles`
+- Fonction à appliquer : `.f = gg_temp_ipr`
+- La liste des `dataframe` : `.x = data_par_dept`
 
 ```{r}
-mes_graphiques <- map2(.x = data_par_dept,
-                       .y = depts_libelles,
-                       .f = ipr_grapher_plusieurs_stations)
+mes_graphiques <- map(.x = data_par_dept,
+                      .f = gg_temp_ipr,
+                      var_id_sta = pop_libelle,
+                      var_ipr = ipr,
+                      sup_500m = FALSE)
 ```
 
 L'objet `mes_graphiques` est une liste contenant autant d'éléments qu'il y a de graphiques, soit un par département. Pour accéder au x^ième^ de ces graphiques on le sélectionne dans la liste au moyen de `[[x]]`
 
-```{r, eval = FALSE}
-mes_graphiques[[3]]
+```{r, fig.width = 10, fig.height = 10}
+mes_graphiques[2:4]
 ```
 
 Pour sauvegarder ces graphiques, on poursuit avec les fonctions `map()` quand on a une seule liste d'arguments à appliquer à la fonction et `map2()` quand il y en a deux.
@@ -398,7 +383,6 @@ ipr_metriques <- passerelle %>%
   select(-pre_id, -lop_id) %>% # variables inutiles
   distinct() %>% # suppression des lignes dupliquées
   mef_ajouter_ope_date() %>% # ajout date et année
-#  mef_filtrer_sta_annee(premiere_annee = 2010) %>% # filtrage sur l'année
   filter(ope_id %in% mes_operations, annee > 2009) %>% # filtrage sur les identifiants d'opérations ope_id et année
   mef_ajouter_metriques() # ajout des métriques
 ```
