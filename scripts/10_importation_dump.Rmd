@@ -201,19 +201,7 @@ save(operation,
 Si l'on veut sauvegarder toutes les tables en csv :
 
 ```{r, eval = FALSE}
-  # identification des dataframes
-  dfs_noms <- ls()[sapply(ls(), function(x) class(get(x)) == 'data.frame')]
-
-  # création d'une liste contenant les dataframes
-  dfs_liste <- mget(dfs_noms)
-  
-  # création du chemin et des noms des fichiers à sauvegarder
-  repertoire <- "../processed_data/csv/"
-  dfs_noms <- paste0(repertoire, dfs_noms, ".csv")
-
-  # sauvegarde
-  pwalk(.l = list(dfs_liste, dfs_noms),
-        .f = write_excel_csv2)
+export_tables_csv(repertoire = "processed_data/csv")
 ```
 
 
