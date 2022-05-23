@@ -225,7 +225,8 @@ gg_temp_ipr(df_ipr = ipr_dept,
 
 ```
 
-Par défaut l'axe des ordonnées est orienté vers le bas (il est inversé pr rapport à un graphique "classique") donc plus les points sont en haut du graphique plus la qualité du milieu est élevée. On peut choisir de changer l'orientation de l'axe des ordonnées (IPR) avec l'argument `inv_y = FALSE`.
+Par défaut l'axe des ordonnées est orienté vers le bas (il est inversé pr rapport à un graphique "classique") donc plus les points sont en haut du graphique plus la qualité du milieu est élevée. On peut choisir de changer l'orientation de l'axe des ordonnées (IPR) avec l'argument `inv_y = FALSE`. Si le document de sortie est au format HTML, on peut aussi rendre le graphique interactif au moyen de l'argument `interactif = TRUE`.
+
 
 ```{r}
 gg_temp_ipr(df_ipr = ipr_dept,
@@ -233,11 +234,13 @@ gg_temp_ipr(df_ipr = ipr_dept,
             station_sel = c("TRIEUX à PLESIDY"),
             var_ipr = ipr,
             sup_500m = FALSE,
-            inv_y = FALSE)
+            inv_y = FALSE,
+            interactif = TRUE)
 
 ```
 
-Pour sélectionner un groupe de stations, on utilise la même fonction en indiquant plusieurs identifiants de station dans l'argument `station_sel`. Sinon, elles sont toutes conservées. 
+
+Si l'argument `station_sel` n'est pas renseigné, toutes les stations du `dataframe` sont toutes conservées. 
 
 ```{r, fig.width = 10, fig.height = 10}
 mon_graphique <-
