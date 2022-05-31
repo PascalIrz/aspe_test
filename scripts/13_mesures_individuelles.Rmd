@@ -119,8 +119,7 @@ data <- data %>%
   filter(pro_libelle %in% c("Pêche complète à un ou plusieurs passages",
                             "Pêche partielle par points (grand milieu)",
                             "Pêche par ambiances",
-                            "Pêche partielle sur berge")) %>% 
-  select(-pro_id)
+                            "Pêche partielle sur berge"))
 ```
 
 # Incorporation des mesures individuelles
@@ -136,7 +135,8 @@ data_ind <- data %>%
   mef_ajouter_esp() %>% # noms des espèces
   mef_ajouter_mei() %>% # mesures individuelles
   mef_ajouter_type_longueur() %>% # type de longueur mesurée
-  select(-obj_id,
+  select(-mei_mep_id,
+         -tyl_id,
          -mei_id,
          -tlo_id) # suppression colonnes inutiles
 ```

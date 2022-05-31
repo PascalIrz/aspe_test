@@ -72,7 +72,7 @@ library(tidyverse)
 On importe la totalité de la base en une fois, ce qui est bien pratique.
 
 ```{r, eval = FALSE}
-file <- "C:/Users/pascal.irz/Documents/projets/ASPE/raw_data/aspe_20211215.sql.gz"
+file <- "C:/Users/pascal.irz/Documents/projets/ASPE/raw_data/aspe_dump_test_pour_datapaper.sql"
 
 imp_importer_dump_sql(fichier_dump = file)
 ```
