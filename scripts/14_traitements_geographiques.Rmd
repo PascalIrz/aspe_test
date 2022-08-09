@@ -154,52 +154,56 @@ station_geo <- station %>%
 Visualisation d'un échantillon de 1000 stations.
 
 ```{r, fig.width = 10}
-mapview::mapview(station_geo %>% sample_n(1000))
+station_geo %>%
+  sample_n(1000) %>% 
+  mapview::mapview()
 ```
 
 Il y a bien quelques points aberrants mais c'est cohérant dans l'ensemble.
 
 ## Sélection géographique
 
-Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, on emploie les polygones de contour des départements. Ceux-ci doivent être dans le même système de coordonnées que les stations, donc en WGS84, identifié par son [code EPSG]() qui est égal à 4326.
+### Principe et données
 
-### Téléchargement
+Dans cet exemple, on sélectionne les stations situées en Bretagne. Pour réaliser l'opération, on emploie le polygone de contour de la région. Les contours des départements seront également utilisés pour produire les cartes.
 
-Téléchargement du shapefile des contours des départements en WGS84 sur le portail [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/contours-des-departements-francais-issus-d-openstreetmap/). On utilise la fonction `tgeo_osm_adm()` du package `{tod}`. Le CRS de sortie est WGS84.
+On utilise le package [`{COGiter}`](https://maeltheuliere.github.io/COGiter/) qui contient le découpage administratif du pays. Ici nous utilisons les objets `regions_metro_geo` et `departements_metro_geo`.
 
-```{r, eval = FALSE, echo = TRUE}
-# url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-# depts <- tod::tgeo_osm_adm(url = url_depts,
-#                            repertoire_donnees_brutes = "raw_data")
-```
 
 ```{r, eval = TRUE, echo = TRUE}
-url_depts <- "https://www.data.gouv.fr/fr/datasets/r/3096e551-c68d-40ce-8972-a228c94c0ad1"
-depts <- tod::tgeo_osm_adm(url = url_depts,
-                           repertoire = "raw_data")
+library(COGiter)
+ 
+ggplot(regions_metro_geo) +
+  geom_sf(aes(fill = REG)) +
+  geom_sf(data = departements_metro_geo,
+          alpha = 0)
+sf::st_crs(regions_metro_geo)
 ```
 
 ### Sélection
 
-On va d'abord attribuer à chaque station son département, puis filtrer sur les 4 départements de la région. 
+On va d'abord attribuer à chaque station son département, puis filtrer sur les 4 départements de la région. En général, la jointure géographique requiert que les CRS des différents objets soient identiques, ce qui n'est pas la cas ici car les objets issus de `COGiter` sont en Lambert 93, cependant la fonction `geo_attribuer()` du package `{aspe}` gère ce cas de figure.
 
 ```{r}
 # les départements sélectionnés
-mes_depts <- depts %>% 
-  filter(code_insee %in% c("22", "29", "35", "56"))
+mes_depts <- departements_metro_geo %>%
+  filter(DEP %in% c("22", "29", "35", "56"))
 
 # attribution et filtre
 station_bzh <- station_geo %>% 
-  aspe::geo_attribuer(mes_depts) %>% 
-  filter(!is.na(code_insee))
+  aspe::geo_attribuer(regions_metro_geo) %>% 
+  filter(REG == "53")
 ```
 
 ### Visualisation
 
 ```{r}
+palette <- mapviewPalette("mapviewTopoColors")
+
 mapview::mapview(mes_depts,
-                 zcol = "code_insee",
-                 alpha.regions = 0.1,
+                 zcol = "DEP",
+                 col.regions = palette(4),
+                 alpha.regions = 0.3,
                  map.types = c("OpenStreetMap",
                                "CartoDB.Positron",
                                "CartoDB.DarkMatter",
@@ -248,12 +252,13 @@ point_prelevement_geo <- point_prelevement %>%
 # sélection des points qui sont dans la région
 point_prelevement_bzh <- point_prelevement_geo %>% 
   aspe::geo_attribuer(mes_depts) %>% 
-  filter(!is.na(code_insee))
+  filter(!is.na(DEP))
 
 # visualisation
 mapview::mapview(mes_depts,
-                 zcol = "code_insee",
-                 alpha.regions = 0.1,
+                 zcol = "DEP",
+                 col.regions = palette(4),
+                 alpha.regions = 0.3,
                  map.types = c("OpenStreetMap",
                                "CartoDB.Positron",
                                "CartoDB.DarkMatter",
