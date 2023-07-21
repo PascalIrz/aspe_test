@@ -357,7 +357,7 @@ Comme tout se déroule à merveille, vous pouvez vérifier la présence des fich
 ## Pourcentage de stations en bon état
 
 ```{r}
-ipr_grapher_pc_bon(ipr_dept, titre = "22") +
+gg_temp_ipr_pc_bon(ipr_dept, titre = "22") +
   labs(x = "")
 ```
 

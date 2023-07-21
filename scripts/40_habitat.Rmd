@@ -413,7 +413,7 @@ df_captures_env_ssech <- df_captures_env_ssech %>%
 
 ```{r, fig.height = 11, fig.width = 11}
 df_captures_env_ssech %>% 
-  aspe::gg_env_fn_annee()
+  aspe::gg_temp_env()
 ```
 
 
